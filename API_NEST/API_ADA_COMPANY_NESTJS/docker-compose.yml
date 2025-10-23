@@ -1,0 +1,66 @@
+services:
+  database:
+    build:
+      context: ../../database/postgres
+    container_name: ada-postgres-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: adacompanysteam
+      POSTGRES_PASSWORD: 2N1lrqwIaBxO4eCZU7w0mjGCBXX7QVee
+      POSTGRES_DB: adacompanybd
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ../../database/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - ada_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_USERNAME: adacompanysteam
+      DB_PASSWORD: 2N1lrqwIaBxO4eCZU7w0mjGCBXX7QVee
+      DB_DATABASE: adacompanybd
+      JWT_SECRET: "ada_company_secret_key_2025"
+      AWS_REGION: "us-east-1"
+      AWS_ACCESS_KEY_ID: "your-access-key"
+      AWS_SECRET_ACCESS_KEY: "your-secret-key"
+      DYNAMODB_TABLE_LOGS: "ada-company-logs"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: always
+    networks:
+      - ada_network
+
+  frontend:
+    build:
+      context: ../../../frontEnd-QuartoSemestre
+      dockerfile: Dockerfile
+    container_name: ada-frontend-app
+    ports:
+      - "80:80"
+    environment:
+      REACT_APP_BACKEND_URL: "http://backend:3000"
+    restart: always
+    networks:
+      - ada_network
+
+volumes:
+  db_data:
+
+networks:
+  ada_network:
+    driver: bridge

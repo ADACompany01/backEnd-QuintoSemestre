@@ -7,7 +7,7 @@ export class LighthouseController {
   constructor(private readonly lighthouseService: LighthouseService) {}
 
   @Public()
-  @Post('accessibility')
+  @Post('analyze')
   async checkAccessibility(@Body('url') url: string) {
     if (!url) {
       throw new HttpException('URL é obrigatória', HttpStatus.BAD_REQUEST);

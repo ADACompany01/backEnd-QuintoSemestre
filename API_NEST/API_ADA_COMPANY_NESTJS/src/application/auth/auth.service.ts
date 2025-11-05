@@ -7,6 +7,8 @@ import { GetClienteByEmailUseCase } from '../use-cases/cliente/get-cliente-by-em
 import { GetFuncionarioByEmailUseCase } from '../use-cases/funcionario/get-funcionario-by-email.use-case';
 import { InjectModel } from '@nestjs/sequelize';
 import { Usuario } from '../../infrastructure/database/entities/usuario.entity';
+import { Cliente } from '../../infrastructure/database/entities/cliente.entity';
+import { Funcionario } from '../../infrastructure/database/entities/funcionario.entity';
 import { UsuarioRepository } from '../../infrastructure/database/repositories/usuario.repository';
 import { FUNCIONARIO_REPOSITORY } from '../../infrastructure/providers/funcionario.provider';
 
@@ -17,6 +19,10 @@ export class AuthService {
   constructor(
     @InjectModel(Usuario)
     private usuarioModel: typeof Usuario,
+    @InjectModel(Cliente)
+    private clienteModel: typeof Cliente,
+    @InjectModel(Funcionario)
+    private funcionarioModel: typeof Funcionario,
     private jwtService: JwtService,
     private configService: ConfigService,
     @Inject(FUNCIONARIO_REPOSITORY)
@@ -55,11 +61,12 @@ export class AuthService {
       try {
         const funcionario = await this.getFuncionarioByEmailUseCase.execute(email);
         if (!funcionario) {
-          throw new UnauthorizedException('Funcionário não encontrado no sistema');
+          this.logger.warn(`Funcionário com email ${email} não encontrado na tabela de funcionários, mas existe na tabela de usuários`);
+          // Não bloquear o login se o funcionário não estiver na tabela, mas registrar o aviso
         }
       } catch (error) {
-        this.logger.error(`Erro ao verificar funcionário: ${error.message}`);
-        throw new UnauthorizedException('Erro ao verificar credenciais de funcionário');
+        this.logger.error(`Erro ao verificar funcionário: ${error.message}`, error.stack);
+        // Não bloquear o login por erros de busca na tabela de funcionários
       }
     }
   
@@ -68,11 +75,12 @@ export class AuthService {
       try {
         const cliente = await this.getClienteByEmailUseCase.execute(email);
         if (!cliente) {
-          throw new UnauthorizedException('Cliente não encontrado no sistema');
+          this.logger.warn(`Cliente com email ${email} não encontrado na tabela de clientes, mas existe na tabela de usuários`);
+          // Não bloquear o login se o cliente não estiver na tabela, mas registrar o aviso
         }
       } catch (error) {
-        this.logger.error(`Erro ao verificar cliente: ${error.message}`);
-        throw new UnauthorizedException('Erro ao verificar credenciais de cliente');
+        this.logger.error(`Erro ao verificar cliente: ${error.message}`, error.stack);
+        // Não bloquear o login por erros de busca na tabela de clientes
       }
     }
   
@@ -116,69 +124,137 @@ export class AuthService {
   }
 
   async register(data: { name: string; email: string; password: string; type?: string; phone?: string }) {
-    // Verificar se email já existe
-    const existingUser = await this.usuarioRepository.findByEmail(data.email);
-    if (existingUser) {
-      throw new UnauthorizedException('Email já cadastrado');
-    }
-
-    // Hash da senha
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    // Mapear tipo do frontend (client/employee) para backend (cliente/funcionario)
-    const tipoUsuario = data.type === 'employee' ? 'funcionario' : 'cliente';
-
-    // Criar usuário
-    const newUser = await this.usuarioModel.create({
-      nome_completo: data.name,
-      email: data.email,
-      senha: hashedPassword,
-      tipo_usuario: tipoUsuario,
-      telefone: data.phone || '',
-    });
-
-    // IMPORTANTE: Também criar registro na tabela funcionarios ou clientes
-    if (tipoUsuario === 'funcionario') {
-      // Criar registro na tabela funcionarios
-      await this.usuarioModel.sequelize.models.Funcionario.create({
-        nome_completo: data.name,
-        email: data.email,
-        telefone: data.phone || '',
-        id_usuario: newUser.id_usuario,
-      });
-    } else {
-      // Criar registro na tabela clientes (precisa CNPJ - usando genérico)
-      await this.usuarioModel.sequelize.models.Cliente.create({
-        nome_completo: data.name,
-        email: data.email,
-        telefone: data.phone || '',
-        cnpj: '00.000.000/0000-00', // CNPJ genérico - depois pode atualizar
-        id_usuario: newUser.id_usuario,
-      });
-    }
-
-    // Gerar token
-    const payload = {
-      id_usuario: String(newUser.id_usuario),
-      email: newUser.email,
-      tipo_usuario: newUser.tipo_usuario
-    };
-
-    const token = this.jwtService.sign(payload, {
-      secret: this.getJwtSecret(),
-      expiresIn: '1h'
-    });
-
-    return {
-      success: true,
-      message: 'Usuário cadastrado com sucesso!',
-      token,
-      user: {
-        id: String(newUser.id_usuario),
-        nome: newUser.nome_completo,
-        email: newUser.email,
-        tipo: newUser.tipo_usuario
+    try {
+      this.logger.log(`[register] Iniciando registro para email: ${data.email}`);
+      
+      // Verificar se email já existe
+      const existingUser = await this.usuarioRepository.findByEmail(data.email);
+      if (existingUser) {
+        this.logger.warn(`[register] Email já cadastrado: ${data.email}`);
+        throw new UnauthorizedException('Email já cadastrado');
       }
-    };
+
+      // Hash da senha
+      const hashedPassword = await bcrypt.hash(data.password, 10);
+
+      // Mapear tipo do frontend (client/employee) para backend (cliente/funcionario)
+      const tipoUsuario = data.type === 'employee' ? 'funcionario' : 'cliente';
+      this.logger.log(`[register] Tipo de usuário: ${tipoUsuario}`);
+
+      // Criar usuário
+      const newUser = await this.usuarioModel.create({
+        nome_completo: data.name,
+        email: data.email,
+        senha: hashedPassword,
+        tipo_usuario: tipoUsuario,
+        telefone: data.phone || '',
+      });
+      
+      this.logger.log(`[register] Usuário criado com ID: ${newUser.id_usuario}`);
+
+      // IMPORTANTE: Também criar registro na tabela funcionarios ou clientes
+      if (tipoUsuario === 'funcionario') {
+        this.logger.log(`[register] Criando registro de funcionário...`);
+        
+        try {
+          await this.funcionarioModel.create({
+            nome_completo: data.name,
+            email: data.email,
+            telefone: data.phone || '',
+            id_usuario: newUser.id_usuario,
+          });
+          
+          this.logger.log(`[register] Funcionário criado com sucesso`);
+        } catch (funcError) {
+          this.logger.error(`[register] Erro ao criar funcionário:`, {
+            message: funcError.message,
+            name: funcError.name,
+            errors: funcError.errors,
+            stack: funcError.stack
+          });
+          
+          // Reverter criação do usuário
+          try {
+            await this.usuarioModel.destroy({ where: { id_usuario: newUser.id_usuario } });
+            this.logger.log(`[register] Rollback do usuário executado com sucesso`);
+          } catch (rollbackError) {
+            this.logger.error(`[register] Erro ao fazer rollback do usuário: ${rollbackError.message}`);
+          }
+          
+          throw new UnauthorizedException(`Erro ao criar registro de funcionário: ${funcError.message}`);
+        }
+      } else {
+        this.logger.log(`[register] Criando registro de cliente...`);
+        
+        try {
+          // Gerar CNPJ temporário único baseado no timestamp e id do usuário
+          const timestamp = Date.now().toString().slice(-8);
+          const cnpjTemporario = `${timestamp.slice(0, 2)}.${timestamp.slice(2, 5)}.${timestamp.slice(5, 8)}/${newUser.id_usuario.slice(0, 4)}-${timestamp.slice(-2)}`;
+          
+          this.logger.log(`[register] CNPJ temporário gerado: ${cnpjTemporario}`);
+          
+          const cliente = await this.clienteModel.create({
+            nome_completo: data.name,
+            email: data.email,
+            telefone: data.phone || '',
+            cnpj: cnpjTemporario,
+            id_usuario: newUser.id_usuario,
+          });
+          
+          this.logger.log(`[register] Cliente criado com sucesso - ID: ${cliente.id_cliente}`);
+        } catch (clientError) {
+          this.logger.error(`[register] Erro ao criar cliente:`, {
+            message: clientError.message,
+            name: clientError.name,
+            errors: clientError.errors,
+            stack: clientError.stack
+          });
+          
+          // Reverter criação do usuário
+          try {
+            await this.usuarioModel.destroy({ where: { id_usuario: newUser.id_usuario } });
+            this.logger.log(`[register] Rollback do usuário executado com sucesso`);
+          } catch (rollbackError) {
+            this.logger.error(`[register] Erro ao fazer rollback do usuário: ${rollbackError.message}`);
+          }
+          
+          throw new UnauthorizedException(`Erro ao criar registro de cliente: ${clientError.message}`);
+        }
+      }
+
+      // Gerar token
+      const payload = {
+        id_usuario: String(newUser.id_usuario),
+        email: newUser.email,
+        tipo_usuario: newUser.tipo_usuario
+      };
+
+      const token = this.jwtService.sign(payload, {
+        secret: this.getJwtSecret(),
+        expiresIn: '1h'
+      });
+
+      this.logger.log(`[register] Registro completo com sucesso para: ${data.email}`);
+
+      return {
+        success: true,
+        message: 'Usuário cadastrado com sucesso!',
+        token,
+        user: {
+          id: String(newUser.id_usuario),
+          nome: newUser.nome_completo,
+          email: newUser.email,
+          tipo: newUser.tipo_usuario
+        }
+      };
+    } catch (error) {
+      this.logger.error(`[register] Erro geral no registro: ${error.message}`, error.stack);
+      
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      
+      throw new UnauthorizedException(`Erro ao registrar usuário: ${error.message}`);
+    }
   }
 } 

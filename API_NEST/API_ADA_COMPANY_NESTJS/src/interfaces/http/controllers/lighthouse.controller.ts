@@ -16,7 +16,16 @@ export class LighthouseController {
       const result = await this.lighthouseService.runLighthouse(url);
       return result;
     } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      const errorMessage = error.message || 'Erro desconhecido';
+      
+      // Se for erro de URL inacessível, retorna BAD_REQUEST
+      if (errorMessage.includes('não pôde ser acessada') || 
+          errorMessage.includes('Verifique se o endereço')) {
+        throw new HttpException(errorMessage, HttpStatus.BAD_REQUEST);
+      }
+      
+      // Outros erros retornam INTERNAL_SERVER_ERROR
+      throw new HttpException(errorMessage, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 } 

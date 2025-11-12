@@ -13,6 +13,7 @@ import { PacoteModule } from './modules/pacote.module';
 import { LighthouseModule } from './modules/lighthouse.module';
 import { LogModule } from './modules/log.module';
 import { JwtAuthGuard } from './interfaces/http/guards/jwt-auth.guard';
+import { TestController } from './interfaces/http/controllers/test.controller';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { JwtAuthGuard } from './interfaces/http/guards/jwt-auth.guard';
     LighthouseModule,
     LogModule,
   ],
+  controllers: [TestController],
   providers: [
     {
       provide: APP_GUARD,

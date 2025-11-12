@@ -51,9 +51,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
   
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');  // Escuta em todas as interfaces de rede
   
   console.log(`Aplicação rodando na porta ${port}`);
   console.log(`Documentação Swagger disponível em: http://localhost:${port}/api`);
+  console.log(`Acessível via rede local em: http://192.168.50.58:${port}/api`);
 }
 bootstrap();

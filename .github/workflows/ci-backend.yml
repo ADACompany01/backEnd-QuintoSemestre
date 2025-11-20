@@ -1,4 +1,4 @@
-name: CI/CD - Backend e Banco de Dados
+name: CI/CD - Backend Mobile
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # O JOB DE BUILD DO BANCO DE DADOS FOI REMOVIDO.
 
   build_and_test_backend:
     runs-on: ubuntu-latest
@@ -210,17 +209,13 @@ jobs:
             echo "ERRO: O secret DB_PASSWORD não está configurado."
             exit 1
           fi
-          if [ -z "${{ secrets.DB_DATABASE }}" ]; then
-            echo "ERRO: O secret DB_DATABASE não está configurado."
-            exit 1
-          fi
           if [ -z "${{ secrets.JWT_SECRET }}" ]; then
             echo "ERRO: O secret JWT_SECRET não está configurado."
             exit 1
           fi
           echo "Secrets verificados com sucesso."    
 
-      - name: 🚀 Deploy Backend e Banco de Dados na EC2
+      - name: 🚀 Deploy Backend Mobile
         if: steps.version_step.outputs.NEW_VERSION != '' 
         uses: appleboy/ssh-action@master
         with:
@@ -230,25 +225,7 @@ jobs:
           script: |
             docker network create ada-net || true
             
-            echo "--- 1. Deploy do Banco de Dados ---"
-            docker pull postgres:latest
-            docker stop postgres-db || true
-            docker rm postgres-db || true
-            docker volume rm pgdata || true
-            
-            echo "Iniciando container do banco de dados..."
-            docker run -d \
-              --name postgres-db \
-              --network ada-net \
-              --restart always \
-              -e POSTGRES_USER=${{ secrets.DB_USERNAME }} \
-              -e POSTGRES_PASSWORD=${{ secrets.DB_PASSWORD }} \
-              -e POSTGRES_DB=${{ secrets.DB_DATABASE }} \
-              -v pgdata:/var/lib/postgresql \
-              -p 5432:5432 \
-              postgres:latest 
-            
-            echo "--- 2. Deploy do Backend ---"
+            echo "--- 1. Deploy do Backend ---"
             echo "Aguardando 20 segundos para o banco de dados inicializar..."
             sleep 20 
 
@@ -258,10 +235,10 @@ jobs:
             
             echo "Iniciando container do backend..."
             docker run -d \
-              --name api-backend \
+              --name api-backend-mobile \
               --network ada-net \
               --restart always \
-              -p 3000:3000 \
+              -p 3001:3000 \
               -e DB_HOST=postgres-db \
               -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
               -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \

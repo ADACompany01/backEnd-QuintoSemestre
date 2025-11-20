@@ -45,7 +45,7 @@ import { JwtAuthGuard } from './interfaces/http/guards/jwt-auth.guard';
     LighthouseModule,
     LogModule,
   ],
-  controllers: [TestController],
+  // controllers: [TestController],
   providers: [
     {
       provide: APP_GUARD,

@@ -182,9 +182,9 @@ jobs:
           context: API_NEST/API_ADA_COMPANY_NESTJS
           push: true
           tags: |
-            ${{ secrets.DOCKER_USERNAME }}/ada-company-backend:latest
-            ${{ secrets.DOCKER_USERNAME }}/ada-company-backend:${{ github.ref_name }}
-            ${{ secrets.DOCKER_USERNAME }}/ada-company-backend:${{ steps.version_step.outputs.NEW_VERSION }}
+            ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:latest
+            ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:${{ github.ref_name }}
+            ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:${{ steps.version_step.outputs.NEW_VERSION }}
           cache-from: type=local,src=/tmp/.buildx-cache-backend
           cache-to: type=local,dest=/tmp/.buildx-cache-backend-new,mode=max
 
@@ -229,7 +229,7 @@ jobs:
             echo "Aguardando 20 segundos para o banco de dados inicializar..."
             sleep 20 
 
-            docker pull ${{ secrets.DOCKER_USERNAME }}/ada-company-backend:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:latest
             docker stop api-backend || true
             docker rm api-backend || true
             
@@ -244,7 +244,7 @@ jobs:
               -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
               -e DB_DATABASE=${{ secrets.DB_DATABASE }} \
               -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
-              ${{ secrets.DOCKER_USERNAME }}/ada-company-backend:latest
+              ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:latest
 
       - name: Enviar Notificação de Erro (se o job falhar)
         if: failure()

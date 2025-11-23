@@ -226,7 +226,7 @@ jobs:
           # Remove imagens antigas e containers parados para liberar espaço
             echo "Limpando sistema Docker para liberar espaço..."
             docker system prune -a -f
-            
+
             docker network create ada-net || true
             
             echo "--- 1. Deploy do Backend ---"

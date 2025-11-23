@@ -6,7 +6,7 @@ import { LoggingInterceptor } from './interfaces/http/interceptors/logging.inter
 import { LoggingExceptionFilter } from './interfaces/http/filters/logging-exception.filter';
 
 async function bootstrap() {
-  const port = 3000;
+  const port = 3001;
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({

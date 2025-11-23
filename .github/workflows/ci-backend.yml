@@ -7,7 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-
   build_and_test_backend:
     runs-on: ubuntu-latest
     steps:
@@ -213,7 +212,7 @@ jobs:
             echo "ERRO: O secret JWT_SECRET não está configurado."
             exit 1
           fi
-          echo "Secrets verificados com sucesso."    
+          echo "Secrets verificados com sucesso."
 
       - name: 🚀 Deploy Backend Mobile
         if: steps.version_step.outputs.NEW_VERSION != '' 
@@ -223,21 +222,20 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-          # Remove imagens antigas e containers parados para liberar espaço
-            echo "Limpando sistema Docker para liberar espaço..."
+            # Limpeza leve para evitar encher o disco
             docker system prune -a -f
-
+            
+            # Garante que a rede exista para conectar ao banco do outro projeto
             docker network create ada-net || true
             
-            echo "--- 1. Deploy do Backend ---"
-            echo "Aguardando 20 segundos para o banco de dados inicializar..."
-            sleep 20 
-
+            echo "--- Deploy do Backend Mobile ---"
             docker pull ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:latest
-            docker stop api-backend || true
-            docker rm api-backend || true
             
-            echo "Iniciando container do backend..."
+            # Para e remove SOMENTE o container mobile
+            docker stop api-backend-mobile || true
+            docker rm api-backend-mobile || true
+            
+            echo "Iniciando container do backend mobile..."
             docker run -d \
               --name api-backend-mobile \
               --network ada-net \

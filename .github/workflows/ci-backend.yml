@@ -240,7 +240,7 @@ jobs:
               --name api-backend-mobile \
               --network ada-net \
               --restart always \
-              -p 3001:3000 \
+              -p 3001:3001 \
               -e DB_HOST=postgres-db \
               -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
               -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \

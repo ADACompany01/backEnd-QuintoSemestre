@@ -74,6 +74,14 @@ async function bootstrap() {
     exposedHeaders: ['X-Total-Count'],
   });
   
+  // Configurar limite de tamanho para uploads (50MB)
+  app.use(require('express').json({ limit: '50mb' }));
+  app.use(require('express').urlencoded({ limit: '50mb', extended: true }));
+
+  // Servir arquivos estáticos da pasta uploads
+  const express = require('express');
+  app.use('/uploads', express.static('uploads'));
+
   // Adicionar ValidationPipe global
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,

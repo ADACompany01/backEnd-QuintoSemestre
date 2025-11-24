@@ -12,6 +12,9 @@ import { ListContratosUseCase } from '../application/use-cases/contrato/list-con
 import { GetContratoUseCase } from '../application/use-cases/contrato/get-contrato.use-case';
 import { UpdateContratoUseCase } from '../application/use-cases/contrato/update-contrato.use-case';
 import { DeleteContratoUseCase } from '../application/use-cases/contrato/delete-contrato.use-case';
+import { SignContratoUseCase } from '../application/use-cases/contrato/sign-contrato.use-case';
+import { SignatureService } from '../application/services/signature.service';
+import { FileUploadService } from '../application/services/file-upload.service';
 import { ORCAMENTO_REPOSITORY } from '../infrastructure/providers/orcamento.provider';
 
 @Module({
@@ -25,6 +28,8 @@ import { ORCAMENTO_REPOSITORY } from '../infrastructure/providers/orcamento.prov
   controllers: [ContratoController],
   providers: [
     ContratoRepositoryProvider,
+    SignatureService,
+    FileUploadService,
     {
       provide: CreateContratoUseCase,
       useFactory: (contratoRepo, orcamentoRepo) => new CreateContratoUseCase(contratoRepo, orcamentoRepo),
@@ -49,6 +54,11 @@ import { ORCAMENTO_REPOSITORY } from '../infrastructure/providers/orcamento.prov
       provide: DeleteContratoUseCase,
       useFactory: (repo) => new DeleteContratoUseCase(repo),
       inject: [CONTRATO_REPOSITORY],
+    },
+    {
+      provide: SignContratoUseCase,
+      useFactory: (contratoRepo, signatureService) => new SignContratoUseCase(contratoRepo, signatureService),
+      inject: [CONTRATO_REPOSITORY, SignatureService],
     },
   ],
   exports: [

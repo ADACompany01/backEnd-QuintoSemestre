@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, HttpStatus, UseGuards, HttpException, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, HttpStatus, UseGuards, HttpException, Logger, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { CreateContratoDto, StatusContrato } from '../../../interfaces/http/dtos/requests/create-contrato.dto';
 import { UpdateContratoDto } from '../../../interfaces/http/dtos/requests/update-contrato.dto';
+import { SignContratoDto } from '../../../interfaces/http/dtos/requests/sign-contrato.dto';
 import { ContratoResponseDto } from '../../../interfaces/http/dtos/responses/contrato-response.dto';
 import { FuncionarioGuard } from '../guards/funcionario.guard';
 import { CreateContratoUseCase } from '../../../application/use-cases/contrato/create-contrato.use-case';
@@ -9,6 +11,8 @@ import { ListContratosUseCase } from '../../../application/use-cases/contrato/li
 import { GetContratoUseCase } from '../../../application/use-cases/contrato/get-contrato.use-case';
 import { UpdateContratoUseCase } from '../../../application/use-cases/contrato/update-contrato.use-case';
 import { DeleteContratoUseCase } from '../../../application/use-cases/contrato/delete-contrato.use-case';
+import { SignContratoUseCase } from '../../../application/use-cases/contrato/sign-contrato.use-case';
+import { FileUploadService } from '../../../application/services/file-upload.service';
 import { Contrato as ContratoModel } from '../../../domain/models/contrato.model';
 
 @ApiTags('contratos')
@@ -24,6 +28,8 @@ export class ContratoController {
     private readonly getContratoUseCase: GetContratoUseCase,
     private readonly updateContratoUseCase: UpdateContratoUseCase,
     private readonly deleteContratoUseCase: DeleteContratoUseCase,
+    private readonly signContratoUseCase: SignContratoUseCase,
+    private readonly fileUploadService: FileUploadService,
   ) {}
 
   @Post()
@@ -167,6 +173,131 @@ export class ContratoController {
     }
   }
 
+  @Post(':id/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Fazer upload do PDF do contrato' })
+  @ApiParam({ name: 'id', description: 'ID do contrato' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Arquivo PDF do contrato',
+        },
+      },
+    },
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Arquivo enviado com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number' },
+        message: { type: 'string' },
+        filePath: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: 'Arquivo inválido ou não fornecido' 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: 'Contrato não encontrado' 
+  })
+  async uploadFile(
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    try {
+      if (!file) {
+        throw new HttpException({
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Arquivo não fornecido',
+        }, HttpStatus.BAD_REQUEST);
+      }
+
+      // Verificar se o contrato existe
+      const contrato = await this.getContratoUseCase.execute(id);
+      if (!contrato) {
+        throw new HttpException({
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Contrato não encontrado',
+        }, HttpStatus.NOT_FOUND);
+      }
+
+      // Salvar arquivo
+      const filePath = await this.fileUploadService.savePDFFile(file, 'contrato', id);
+
+      // Atualizar contrato com o caminho do arquivo
+      await this.updateContratoUseCase.execute(id, { arquivo_contrato: filePath } as any);
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Arquivo enviado com sucesso',
+        filePath,
+      };
+    } catch (error) {
+      this.logger.error(`Erro ao fazer upload do arquivo do contrato ${id}: ${error.message}`, error.stack);
+      throw new HttpException({
+        statusCode: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `Erro ao fazer upload: ${error.message}`,
+        error: error.name,
+      }, error.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Post('sign')
+  @ApiOperation({ summary: 'Assinar um contrato digitalmente' })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Contrato assinado com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        signedContractPath: { type: 'string' },
+        message: { type: 'string' }
+      }
+    }
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: 'Dados inválidos fornecidos' 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: 'Contrato não encontrado' 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.UNAUTHORIZED, 
+    description: 'Token não fornecido ou inválido' 
+  })
+  async sign(@Body() signContratoDto: SignContratoDto) {
+    try {
+      const result = await this.signContratoUseCase.execute(
+        signContratoDto.contrato_id,
+        signContratoDto.signature,
+      );
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Contrato assinado com sucesso',
+        signedContractPath: result.signedContractPath,
+      };
+    } catch (error) {
+      this.logger.error(`Erro ao assinar contrato: ${error.message}`, error.stack);
+      throw new HttpException({
+        statusCode: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `Erro ao assinar contrato: ${error.message}`,
+        error: error.name,
+      }, error.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Remover um contrato' })
   @ApiParam({ name: 'id', description: 'ID do contrato' })
@@ -211,7 +342,9 @@ export class ContratoController {
       data_inicio: contrato.data_inicio,
       data_entrega: contrato.data_entrega,
       cliente: (contrato as any).cliente,
-      orcamento: (contrato as any).orcamento
+      orcamento: (contrato as any).orcamento,
+      arquivo_contrato: (contrato as any).arquivo_contrato,
+      contrato_assinado_url: (contrato as any).contrato_assinado_url,
     };
   }
 } 

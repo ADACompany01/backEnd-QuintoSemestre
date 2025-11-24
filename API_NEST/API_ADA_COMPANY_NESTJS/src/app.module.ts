@@ -12,6 +12,7 @@ import { FuncionarioModule } from './modules/funcionario.module';
 import { OrcamentoModule } from './modules/orcamento.module';
 import { ContratoModule } from './modules/contrato.module';
 import { PacoteModule } from './modules/pacote.module';
+import { SolicitacaoModule } from './modules/solicitacao.module';
 import { LighthouseModule } from './modules/lighthouse.module';
 import { LogModule } from './modules/log.module';
 import { NotificacaoModule } from './modules/notificacao.module';
@@ -60,6 +61,7 @@ import { JwtAuthGuard } from './interfaces/http/guards/jwt-auth.guard';
     OrcamentoModule,
     ContratoModule,
     PacoteModule,
+    SolicitacaoModule,
     LighthouseModule,
     LogModule,
     NotificacaoModule,

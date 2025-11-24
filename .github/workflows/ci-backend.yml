@@ -20,7 +20,7 @@ jobs:
           node-version: 20
 
       - name: Instalar Dependências do Backend
-        run: npm install
+        run: npm install --legacy-peer-deps
         working-directory: API_NEST/API_ADA_COMPANY_NESTJS
 
       - name: Executar Testes do Backend

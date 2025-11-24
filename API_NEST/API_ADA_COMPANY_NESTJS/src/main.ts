@@ -14,7 +14,7 @@ async function bootstrap() {
      'http://localhost:3000',
      'http://localhost:8081', 
      'http://192.168.50.58:8081',
-     'https://newadacompany.vercel.app',
+     'http://adacompany.duckdns.org',
      '*' // Permitir todas durante desenvolvimento
    ],
    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',

@@ -9,7 +9,7 @@ COPY tsconfig*.json ./
 COPY . .
 
 # Instala as dependências
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Compila o projeto
 RUN npm run build

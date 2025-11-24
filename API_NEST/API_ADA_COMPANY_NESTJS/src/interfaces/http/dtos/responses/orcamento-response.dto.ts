@@ -50,4 +50,11 @@ export class OrcamentoResponseDto {
     type: ClienteResponseDto
   })
   cliente: ClienteResponseDto;
+
+  @ApiProperty({
+    description: 'Caminho do arquivo PDF do orçamento',
+    example: 'uploads/orcamentos/orcamento_123.pdf',
+    required: false
+  })
+  arquivo_orcamento?: string;
 } 

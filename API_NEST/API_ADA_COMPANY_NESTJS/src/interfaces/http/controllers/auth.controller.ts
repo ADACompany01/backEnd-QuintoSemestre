@@ -80,7 +80,7 @@ export class AuthController {
     }
   }
 
-  @ApiOperation({ summary: 'Registrar novo usuário' })
+  @ApiOperation({ summary: 'Registrar novo cliente (apenas clientes podem se cadastrar)' })
   @ApiBody({
     schema: {
       type: 'object',
@@ -88,15 +88,20 @@ export class AuthController {
         name: { type: 'string', example: 'João Silva' },
         email: { type: 'string', example: 'joao@example.com' },
         password: { type: 'string', example: 'senha123' },
-        type: { type: 'string', enum: ['client', 'employee'], example: 'client' },
+        type: { type: 'string', enum: ['client'], example: 'client', description: 'Apenas "client" é permitido. Funcionários não podem se cadastrar por este endpoint.' },
         phone: { type: 'string', example: '(11) 99999-9999' }
       },
       required: ['name', 'email', 'password']
-    }
+    },
+    description: 'Dados do cliente. Funcionários devem ser cadastrados apenas por administradores autenticados.'
   })
   @ApiResponse({
     status: 201,
-    description: 'Usuário registrado com sucesso',
+    description: 'Cliente registrado com sucesso',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Tentativa de cadastrar funcionário ou email já cadastrado'
   })
   @ApiResponse({
     status: 409,

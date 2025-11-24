@@ -58,4 +58,18 @@ export class ContratoResponseDto {
     type: OrcamentoResponseDto
   })
   orcamento: OrcamentoResponseDto;
+
+  @ApiProperty({
+    description: 'Caminho do arquivo PDF do contrato',
+    example: 'uploads/contratos/contrato_123.pdf',
+    required: false
+  })
+  arquivo_contrato?: string;
+
+  @ApiProperty({
+    description: 'Caminho do arquivo PDF do contrato assinado',
+    example: 'uploads/contratos-assinados/contrato_123_assinado.pdf',
+    required: false
+  })
+  contrato_assinado_url?: string;
 } 

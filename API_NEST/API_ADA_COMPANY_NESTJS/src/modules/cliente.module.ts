@@ -8,6 +8,7 @@ import { ClienteRepositoryProvider, CLIENTE_REPOSITORY } from '../infrastructure
 import { CreateClienteUseCase } from '../application/use-cases/cliente/create-cliente.use-case';
 import { ListClientesUseCase } from '../application/use-cases/cliente/list-clientes.use-case';
 import { GetClienteUseCase } from '../application/use-cases/cliente/get-cliente.use-case';
+import { GetClienteByUsuarioUseCase } from '../application/use-cases/cliente/get-cliente-by-usuario.use-case';
 import { UpdateClienteUseCase } from '../application/use-cases/cliente/update-cliente.use-case';
 import { DeleteClienteUseCase } from '../application/use-cases/cliente/delete-cliente.use-case';
 import { FuncionarioModule } from '../modules/funcionario.module';
@@ -39,6 +40,11 @@ import { UsuarioRepository } from '../infrastructure/database/repositories/usuar
       inject: [CLIENTE_REPOSITORY],
     },
     {
+      provide: GetClienteByUsuarioUseCase,
+      useFactory: (repo) => new GetClienteByUsuarioUseCase(repo),
+      inject: [CLIENTE_REPOSITORY],
+    },
+    {
       provide: UpdateClienteUseCase,
       useFactory: (repo) => new UpdateClienteUseCase(repo),
       inject: [CLIENTE_REPOSITORY],
@@ -53,6 +59,7 @@ import { UsuarioRepository } from '../infrastructure/database/repositories/usuar
     CreateClienteUseCase,
     ListClientesUseCase,
     GetClienteUseCase,
+    GetClienteByUsuarioUseCase,
     UpdateClienteUseCase,
     DeleteClienteUseCase,
     CLIENTE_REPOSITORY,

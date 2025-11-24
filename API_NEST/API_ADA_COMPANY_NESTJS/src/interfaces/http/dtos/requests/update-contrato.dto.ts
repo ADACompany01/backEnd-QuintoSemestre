@@ -48,4 +48,20 @@ export class UpdateContratoDto {
   @IsDate({ message: 'A data de entrega deve ser uma data válida.' })
   @IsOptional()
   data_entrega?: Date;
+
+  @ApiProperty({
+    description: 'Caminho do arquivo PDF do contrato',
+    example: 'uploads/contratos/contrato_123.pdf',
+    required: false
+  })
+  @IsOptional()
+  arquivo_contrato?: string;
+
+  @ApiProperty({
+    description: 'Caminho do arquivo PDF do contrato assinado',
+    example: 'uploads/contratos-assinados/contrato_123_assinado.pdf',
+    required: false
+  })
+  @IsOptional()
+  contrato_assinado_url?: string;
 } 

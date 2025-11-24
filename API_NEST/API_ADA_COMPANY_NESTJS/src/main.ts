@@ -4,12 +4,58 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { LoggingInterceptor } from './interfaces/http/interceptors/logging.interceptor';
 import { LoggingExceptionFilter } from './interfaces/http/filters/logging-exception.filter';
+import helmet from 'helmet';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const port = 3001;
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+  const isDevelopment = configService.get<string>('NODE_ENV') !== 'production';
+
+  // Configuração do Helmet para headers de segurança HTTP
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Permite carregar recursos externos quando necessário
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  }));
+
+  // Configuração segura do CORS - removido asterisco (*)
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:8081',
+    'https://newadacompany.vercel.app',
+    'https://backend-adacompany.onrender.com',
+  ];
+
+  // Adicionar IPs locais apenas em desenvolvimento
+  if (isDevelopment) {
+    allowedOrigins.push(
+      'http://192.168.1.7:3000',
+      'http://192.168.1.7:8081',
+      'http://192.168.50.58:3000',
+      'http://192.168.50.58:8081',
+    );
+  }
 
   app.enableCors({
+<<<<<<< HEAD
    origin: [
      'http://localhost:3000',
      'http://localhost:8081', 
@@ -19,8 +65,35 @@ async function bootstrap() {
    ],
    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
    credentials: true,
+=======
+    origin: (origin, callback) => {
+      // Permitir requisições sem origin (mobile apps, Postman, etc.) apenas em desenvolvimento
+      if (!origin && isDevelopment) {
+        return callback(null, true);
+      }
+      
+      // Verificar se a origin está na lista permitida
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Não permitido pelo CORS'));
+      }
+    },
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-Total-Count'],
+>>>>>>> development
   });
   
+  // Configurar limite de tamanho para uploads (50MB)
+  app.use(require('express').json({ limit: '50mb' }));
+  app.use(require('express').urlencoded({ limit: '50mb', extended: true }));
+
+  // Servir arquivos estáticos da pasta uploads
+  const express = require('express');
+  app.use('/uploads', express.static('uploads'));
+
   // Adicionar ValidationPipe global
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
@@ -33,28 +106,37 @@ async function bootstrap() {
   // app.useGlobalInterceptors(app.get(LoggingInterceptor));
   // app.useGlobalFilters(app.get(LoggingExceptionFilter));
   
-  // Configuração do Swagger
-  const config = new DocumentBuilder()
-    .setTitle('API ADA Company')
-    .setDescription('API para gerenciamento de serviços da ADA Company')
-    .setVersion('1.0')
-    .addTag('auth', 'Endpoints de autenticação')
-    .addTag('clientes', 'Gerenciamento de clientes')
-    .addTag('funcionarios', 'Gerenciamento de funcionários')
-    .addTag('pacotes', 'Gerenciamento de pacotes')
-    .addTag('orcamentos', 'Gerenciamento de orçamentos')
-    .addTag('contratos', 'Gerenciamento de contratos')
-    .addTag('logs', 'Sistema de logs da aplicação')
-    .addBearerAuth()
-    .build();
-    
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  // Configuração do Swagger - apenas em ambiente de desenvolvimento
+  if (isDevelopment) {
+    const config = new DocumentBuilder()
+      .setTitle('API ADA Company')
+      .setDescription('API para gerenciamento de serviços da ADA Company')
+      .setVersion('1.0')
+      .addTag('auth', 'Endpoints de autenticação')
+      .addTag('clientes', 'Gerenciamento de clientes')
+      .addTag('funcionarios', 'Gerenciamento de funcionários')
+      .addTag('pacotes', 'Gerenciamento de pacotes')
+      .addTag('orcamentos', 'Gerenciamento de orçamentos')
+      .addTag('contratos', 'Gerenciamento de contratos')
+      .addTag('logs', 'Sistema de logs da aplicação')
+      .addBearerAuth()
+      .build();
+      
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, document);
+    console.log(`⚠️  Swagger disponível apenas em desenvolvimento: http://localhost:${port}/api`);
+  } else {
+    console.log('🔒 Swagger desabilitado em produção por segurança');
+  }
   
   await app.listen(port, '0.0.0.0');  // Escuta em todas as interfaces de rede
   
-  console.log(`Aplicação rodando na porta ${port}`);
-  console.log(`Documentação Swagger disponível em: http://localhost:${port}/api`);
-  console.log(`Acessível via rede local em: http://192.168.50.58:${port}/api`);
+  console.log(`✅ Aplicação rodando na porta ${port}`);
+  if (isDevelopment) {
+    console.log(`📚 Documentação Swagger disponível em: http://localhost:${port}/api`);
+    console.log(`🌐 Acessível via rede local em: http://192.168.1.7:${port}/api`);
+  } else {
+    console.log(`🔒 Modo produção: Swagger desabilitado`);
+  }
 }
 bootstrap();

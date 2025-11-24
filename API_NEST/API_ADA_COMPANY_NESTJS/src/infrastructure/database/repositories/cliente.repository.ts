@@ -57,4 +57,11 @@ export class ClienteRepositoryImpl implements ClienteRepository {
   async findById(id: string): Promise<Cliente | null> {
     return this.clienteModel.findByPk(id, { include: [Usuario] });
   }
+
+  async findByIdUsuario(id_usuario: string): Promise<Cliente | null> {
+    return this.clienteModel.findOne({
+      where: { id_usuario },
+      include: [Usuario]
+    });
+  }
 } 

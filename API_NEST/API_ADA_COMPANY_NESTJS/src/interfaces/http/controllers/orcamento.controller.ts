@@ -1,14 +1,16 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, HttpStatus, Logger, HttpException, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, HttpStatus, Logger, HttpException, UseGuards, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CreateOrcamentoDto } from '../../../interfaces/http/dtos/requests/create-orcamento.dto';
 import { UpdateOrcamentoDto } from '../../../interfaces/http/dtos/requests/update-orcamento.dto';
 import { OrcamentoResponseDto } from '../../../interfaces/http/dtos/responses/orcamento-response.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { FuncionarioGuard } from '../guards/funcionario.guard';
 import { CreateOrcamentoUseCase } from '../../../application/use-cases/orcamento/create-orcamento.use-case';
 import { ListOrcamentosUseCase } from '../../../application/use-cases/orcamento/list-orcamentos.use-case';
 import { GetOrcamentoUseCase } from '../../../application/use-cases/orcamento/get-orcamento.use-case';
 import { UpdateOrcamentoUseCase } from '../../../application/use-cases/orcamento/update-orcamento.use-case';
 import { DeleteOrcamentoUseCase } from '../../../application/use-cases/orcamento/delete-orcamento.use-case';
+import { FileUploadService } from '../../../application/services/file-upload.service';
 import { Orcamento as OrcamentoModel } from '../../../domain/models/orcamento.model';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 
@@ -25,6 +27,7 @@ export class OrcamentoController {
     private readonly getOrcamentoUseCase: GetOrcamentoUseCase,
     private readonly updateOrcamentoUseCase: UpdateOrcamentoUseCase,
     private readonly deleteOrcamentoUseCase: DeleteOrcamentoUseCase,
+    private readonly fileUploadService: FileUploadService,
   ) {}
 
   @Post()
@@ -207,6 +210,89 @@ export class OrcamentoController {
     }
   }
 
+  @Post(':id/upload')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    },
+  }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Fazer upload do PDF do orçamento' })
+  @ApiParam({ name: 'id', description: 'ID do orçamento' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Arquivo PDF do orçamento',
+        },
+      },
+    },
+  })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Arquivo enviado com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number' },
+        message: { type: 'string' },
+        filePath: { type: 'string' },
+      },
+    },
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: 'Arquivo inválido ou não fornecido' 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: 'Orçamento não encontrado' 
+  })
+  async uploadFile(
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    try {
+      if (!file) {
+        throw new HttpException({
+          statusCode: HttpStatus.BAD_REQUEST,
+          message: 'Arquivo não fornecido',
+        }, HttpStatus.BAD_REQUEST);
+      }
+
+      // Verificar se o orçamento existe
+      const orcamento = await this.getOrcamentoUseCase.execute(id);
+      if (!orcamento) {
+        throw new HttpException({
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Orçamento não encontrado',
+        }, HttpStatus.NOT_FOUND);
+      }
+
+      // Salvar arquivo
+      const filePath = await this.fileUploadService.savePDFFile(file, 'orcamento', id);
+
+      // Atualizar orçamento com o caminho do arquivo
+      await this.updateOrcamentoUseCase.execute(id, { arquivo_orcamento: filePath });
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Arquivo enviado com sucesso',
+        filePath,
+      };
+    } catch (error) {
+      this.logger.error(`Erro ao fazer upload do arquivo do orçamento ${id}: ${error.message}`, error.stack);
+      throw new HttpException({
+        statusCode: error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `Erro ao fazer upload: ${error.message}`,
+        error: error.name,
+      }, error.status || HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Remover um orçamento' })
   @ApiParam({ name: 'id', description: 'ID do orçamento' })
@@ -250,7 +336,8 @@ export class OrcamentoController {
       id_pacote: orcamento.id_pacote,
       id_cliente: (orcamento as any).id_cliente,
       pacote: (orcamento as any).pacote,
-      cliente: (orcamento as any).cliente
+      cliente: (orcamento as any).cliente,
+      arquivo_orcamento: (orcamento as any).arquivo_orcamento,
     };
   }
 }

@@ -21,24 +21,22 @@ export class FuncionarioGuard implements CanActivate {
       throw new UnauthorizedException('Usuário não autenticado');
     }
 
-    // Permite acesso para funcionários E clientes
-    if (user.tipo_usuario === 'cliente' || user.tipo_usuario === 'funcionario') {
-      return true;
+    // CORRIGIDO: Permite acesso APENAS para funcionários
+    if (user.tipo_usuario !== 'funcionario') {
+      throw new UnauthorizedException('Acesso negado. Apenas funcionários podem acessar este recurso.');
     }
 
-    // Se for funcionário, verifica se existe no repositório
-    if (user.tipo_usuario === 'funcionario') {
-      try {
-        const funcionario = await this.funcionarioRepository.findByEmail(user.email);
-        if (!funcionario) {
-          throw new UnauthorizedException('Funcionário não encontrado');
-        }
-      } catch (error) {
-        if (error instanceof UnauthorizedException) {
-          throw error;
-        }
-        throw new UnauthorizedException('Erro ao verificar funcionário');
+    // Verifica se o funcionário existe no repositório
+    try {
+      const funcionario = await this.funcionarioRepository.findByEmail(user.email);
+      if (!funcionario) {
+        throw new UnauthorizedException('Funcionário não encontrado');
       }
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Erro ao verificar funcionário');
     }
 
     return true;

@@ -1,51 +1,120 @@
 import { Injectable } from '@nestjs/common';
-const lighthouseModule = require('lighthouse');
-import * as chromeLauncher from 'chrome-launcher';
 import chromium from 'chromium';
+import * as https from 'https';
+import * as http from 'http';
 
 @Injectable()
 export class LighthouseService {
+  /**
+   * Valida se a URL está acessível antes de executar o Lighthouse
+   * Retorna rapidamente (timeout de 5 segundos) para evitar espera desnecessária
+   */
+  private async validateUrlAccessibility(url: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        const timeout = 5000; // 5 segundos
+        const urlObj = new URL(url);
+        const client = urlObj.protocol === 'https:' ? https : http;
+        
+        const request = client.get(url, { timeout }, (response) => {
+          // Qualquer resposta (mesmo erro 404) significa que o site está acessível
+          resolve(response.statusCode !== undefined);
+          request.destroy();
+        });
+
+        request.on('error', () => {
+          resolve(false);
+        });
+
+        request.on('timeout', () => {
+          request.destroy();
+          resolve(false);
+        });
+
+        // Timeout de segurança
+        setTimeout(() => {
+          if (!request.destroyed) {
+            request.destroy();
+          }
+          resolve(false);
+        }, timeout);
+      } catch (error) {
+        // URL inválida ou outro erro
+        resolve(false);
+      }
+    });
+  }
+
   async runLighthouse(url: string) {
+    // Validação prévia rápida da URL (5 segundos máximo)
+    const isAccessible = await this.validateUrlAccessibility(url);
+    
+    if (!isAccessible) {
+      throw new Error(`A URL "${url}" não pôde ser acessada. Verifique se o endereço está correto e se o site está online.`);
+    }
+    
+    // Importação dinâmica do chrome-launcher (ES Module)
+    const chromeLauncherModule = await import('chrome-launcher');
+    const chromeLauncher = chromeLauncherModule.default || chromeLauncherModule;
+    
     const chrome = await chromeLauncher.launch({
       chromePath: process.env.CHROME_PATH || chromium.path,
-      chromeFlags: ['--headless', '--disable-gpu', '--no-sandbox'],
+      chromeFlags: [
+        '--headless',
+        '--disable-gpu',
+        '--no-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-sync',
+        '--disable-translate',
+        '--hide-scrollbars',
+        '--mute-audio',
+        '--no-first-run',
+        '--disable-default-apps',
+      ],
     });
 
-    const options = {
-      logLevel: 'info',
+    const options: any = {
+      logLevel: 'error', // Reduzir logs para apenas erros
       output: 'json',
       port: chrome.port,
       onlyCategories: ['accessibility'],
       locale: 'pt-BR',
+      maxWaitForLoad: 8000, // Reduzido para 8 segundos
+      maxWaitForFcp: 5000, // Timeout para First Contentful Paint
+      throttling: {
+        rttMs: 40, // Reduzir latência simulada
+        throughputKbps: 10240, // Aumentar throughput
+        cpuSlowdownMultiplier: 1, // Sem desaceleração de CPU
+      },
+      skipAudits: [
+        // Pular auditorias que não são essenciais para acessibilidade
+        'uses-http2',
+        'uses-long-cache-ttl',
+        'total-byte-weight',
+        'dom-size',
+      ],
     };
 
     try {
-      console.log('Chaves do objeto lighthouse:', Object.keys(lighthouseModule));
-      let runnerResult;
-      if (typeof lighthouseModule === 'function') {
-        runnerResult = await lighthouseModule(url, options);
-      } else if (typeof lighthouseModule.default === 'function') {
-        runnerResult = await lighthouseModule.default(url, options);
-      } else {
-        const lighthouseFn = Object.values(lighthouseModule).find(
-          (val) => typeof val === 'function'
-        );
-        if (lighthouseFn) {
-          runnerResult = await lighthouseFn(url, options);
-        } else {
-          throw new Error('Não foi possível encontrar a função lighthouse');
-        }
-      }
-      const reportJson = runnerResult.report;
-      const reportObject = JSON.parse(reportJson);
-      await chrome.kill();
-      console.log('Categorias disponíveis:', Object.keys(reportObject.categories));
+      // Importação dinâmica do Lighthouse (ES Module)
+      const lighthouseModule = await import('lighthouse');
+      const lighthouse = lighthouseModule.default;
       
-      // DEBUG: Verificar detalhes da navegação
+      if (typeof lighthouse !== 'function') {
+        throw new Error('Função lighthouse não encontrada no módulo');
+      }
+      
+      const runnerResult = await lighthouse(url, options);
+      const reportJson = Array.isArray(runnerResult.report) 
+        ? runnerResult.report[0] 
+        : runnerResult.report;
+      const reportObject = JSON.parse(reportJson as string);
+      await chrome.kill();
+      
+      // Verificar detalhes da navegação (sem logs excessivos)
       const finalUrl = reportObject.finalDisplayedUrl || reportObject.finalUrl || reportObject.requestedUrl;
-      console.log('URL solicitada:', url);
-      console.log('URL final:', finalUrl);
-      console.log('Score acessibilidade:', reportObject.categories.accessibility.score);
       const runtimeError = reportObject.runtimeError;
       
       // Se há erro de runtime ou URL final é chrome-error, significa que não conseguiu acessar
@@ -76,7 +145,6 @@ export class LighthouseService {
       };
     } catch (error) {
       await chrome.kill();
-      console.error('Erro completo:', error);
       
       // Identificar tipo de erro
       const errorMessage = error.message || error.toString();
@@ -92,8 +160,8 @@ export class LighthouseService {
         throw new Error(`A URL "${url}" não pôde ser acessada. Verifique se o endereço está correto e se o site está online.`);
       }
       
-      // Outros erros do Lighthouse
-      throw new Error(`Erro ao executar o Lighthouse: ${error.message}`);
+      // Outros erros - mensagem genérica sem mencionar Lighthouse
+      throw new Error(`Não foi possível analisar o site. Verifique se a URL está correta e tente novamente.`);
     }
   }
 } 

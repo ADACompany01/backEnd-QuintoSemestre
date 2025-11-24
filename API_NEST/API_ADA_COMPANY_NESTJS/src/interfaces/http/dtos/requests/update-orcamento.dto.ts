@@ -39,4 +39,12 @@ export class UpdateOrcamentoDto extends PartialType(CreateOrcamentoDto) {
   @IsUUID()
   @IsOptional()
   id_pacote?: string;
+
+  @ApiProperty({
+    description: 'Caminho do arquivo PDF do orçamento',
+    example: 'uploads/orcamentos/orcamento_123.pdf',
+    required: false
+  })
+  @IsOptional()
+  arquivo_orcamento?: string;
 } 

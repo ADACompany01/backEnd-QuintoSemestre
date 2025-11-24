@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, HttpStatus, Logger, HttpException, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, HttpStatus, Logger, HttpException, UseGuards, Request } from '@nestjs/common';
 import { Public } from '../../http/decorators/public.decorator';
 import { CreateClienteDto } from '../dtos/requests/create-cliente.dto';
 import { UpdateClienteDto } from '../dtos/requests/update-cliente.dto';
@@ -9,8 +9,10 @@ import { FuncionarioGuard } from '../guards/funcionario.guard';
 import { CreateClienteUseCase } from '../../../application/use-cases/cliente/create-cliente.use-case';
 import { ListClientesUseCase } from '../../../application/use-cases/cliente/list-clientes.use-case';
 import { GetClienteUseCase } from '../../../application/use-cases/cliente/get-cliente.use-case';
+import { GetClienteByUsuarioUseCase } from '../../../application/use-cases/cliente/get-cliente-by-usuario.use-case';
 import { UpdateClienteUseCase } from '../../../application/use-cases/cliente/update-cliente.use-case';
 import { DeleteClienteUseCase } from '../../../application/use-cases/cliente/delete-cliente.use-case';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 
 @ApiTags('clientes')
 @ApiBearerAuth()
@@ -22,6 +24,7 @@ export class ClienteController {
     private readonly createClienteUseCase: CreateClienteUseCase,
     private readonly listClientesUseCase: ListClientesUseCase,
     private readonly getClienteUseCase: GetClienteUseCase,
+    private readonly getClienteByUsuarioUseCase: GetClienteByUsuarioUseCase,
     private readonly updateClienteUseCase: UpdateClienteUseCase,
     private readonly deleteClienteUseCase: DeleteClienteUseCase,
   ) {}
@@ -54,6 +57,54 @@ export class ClienteController {
       throw new HttpException({
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
         message: `Erro ao cadastrar cliente: ${error.message}`,
+        error: error.name,
+      }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  @ApiOperation({ summary: 'Obter dados do cliente logado' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Cliente encontrado com sucesso',
+    type: ClienteResponseDto
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Cliente não encontrado'
+  })
+  async getMe(@Request() req: any) {
+    try {
+      const user = req.user;
+      if (!user || user.tipo_usuario !== 'cliente') {
+        throw new HttpException({
+          statusCode: HttpStatus.FORBIDDEN,
+          message: 'Apenas clientes podem acessar este recurso',
+        }, HttpStatus.FORBIDDEN);
+      }
+
+      const cliente = await this.getClienteByUsuarioUseCase.execute(user.id_usuario);
+      if (!cliente) {
+        throw new HttpException({
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Cliente não encontrado',
+        }, HttpStatus.NOT_FOUND);
+      }
+
+      return {
+        statusCode: HttpStatus.OK,
+        message: 'Cliente encontrado com sucesso',
+        data: this.toClienteResponseDto(cliente),
+      };
+    } catch (error) {
+      this.logger.error(`Erro ao buscar cliente logado: ${error.message}`, error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException({
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: `Erro ao buscar cliente: ${error.message}`,
         error: error.name,
       }, HttpStatus.INTERNAL_SERVER_ERROR);
     }

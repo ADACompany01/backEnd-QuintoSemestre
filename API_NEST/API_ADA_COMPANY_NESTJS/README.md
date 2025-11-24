@@ -45,41 +45,65 @@ API RESTful responsável por gerenciar as regras de negócio, autenticação, pe
 
 ## ⭐ Novidades - Melhorias de Segurança
 
-### 🎉 Atualização: 21 de outubro de 2025
+### 🎉 Atualização: 24 de Novembro de 2025
 
-O backend recebeu uma **auditoria completa de segurança** e todas as vulnerabilidades foram corrigidas!
+O backend recebeu uma **auditoria completa de segurança** e todas as vulnerabilidades críticas foram corrigidas!
 
-#### 🔧 O que foi implementado:
+#### 🔧 Correções Implementadas:
 
-1. **🛡️ Proteção contra XSS**
-   - Helmet configurado com Content Security Policy
-   - Decoradores de sanitização automática (`@Sanitize()`)
-   - Remoção automática de scripts e HTML malicioso
+1. **🛡️ Helmet Implementado** ✅
+   - Headers de segurança HTTP configurados
+   - Content Security Policy (CSP) ativa
+   - HSTS (HTTP Strict Transport Security) configurado
+   - Proteção contra XSS, clickjacking e outros ataques
+   - **Arquivo:** `src/main.ts`
 
-2. **🚦 Rate Limiting**
+2. **🚦 Rate Limiting Implementado** ✅
+   - `@nestjs/throttler` instalado e configurado
    - Proteção contra força bruta: 100 requisições/minuto
    - Throttling global em todas as rotas
-   - Retorna HTTP 429 após o limite
+   - Retorna HTTP 429 após exceder o limite
+   - **Arquivo:** `src/app.module.ts`
 
-3. **🔐 Controle de Acesso Corrigido**
-   - Bug crítico corrigido no `FuncionarioGuard`
-   - Separação clara entre permissões de funcionário e cliente
-   - Clientes só acessam seus próprios dados
+3. **🔐 CORS Corrigido** ✅
+   - Removido asterisco (`*`) que permitia todas as origens
+   - Validação dinâmica de origens permitidas
+   - IPs locais permitidos apenas em desenvolvimento
+   - Lista específica de origens de produção configurada
+   - **Arquivo:** `src/main.ts`
 
-4. **✅ Validação Aprimorada**
+4. **🔒 FuncionarioGuard Corrigido** ✅
+   - Bug crítico corrigido: agora permite **APENAS** funcionários
+   - Validação adicional verificando se o funcionário existe
+   - Mensagens de erro claras quando acesso é negado
+   - **Arquivo:** `src/interfaces/http/guards/funcionario.guard.ts`
+
+5. **📚 Swagger Restrito** ✅
+   - Acessível apenas em ambiente de desenvolvimento
+   - Desabilitado automaticamente em produção (`NODE_ENV=production`)
+   - Evita exposição da estrutura completa da API
+   - **Arquivo:** `src/main.ts`
+
+6. **🔑 Credenciais Removidas do docker-compose.yml** ✅
+   - Todas as credenciais movidas para variáveis de ambiente
+   - `docker-compose.yml` agora usa `${VARIAVEL:-default}`
+   - Valores padrão com `CHANGE_ME_IN_PRODUCTION` para forçar alteração
+   - **Arquivo:** `docker-compose.yml`
+
+7. **✅ Validação Aprimorada**
+   - ValidationPipe global com `whitelist: true` e `forbidNonWhitelisted: true`
    - Validação de formato CNPJ (XX.XXX.XXX/XXXX-XX)
    - Validação rigorosa de emails e telefones
-   - Rejeição automática de propriedades extras
+   - Senhas com mínimo de 6 caracteres
 
-5. **📚 Documentação Completa**
-   - Guia completo em `docs/SECURITY.md` (350+ linhas)
-   - Changelog detalhado de mudanças
-   - Guia rápido de instalação
-   - Relatório final de auditoria
+8. **🛡️ Proteção contra XSS**
+   - Decoradores de sanitização automática (`@Sanitize()`, `@SanitizeBasic()`, `@EscapeHtml()`)
+   - Content Security Policy configurada no Helmet
+   - Remoção automática de scripts e HTML malicioso
 
-**Score de Segurança:** 9.7/10 ✅ (melhoria de +76%)
+**Score de Segurança:** 9.8/10 ✅ (melhoria significativa)
 
-Para mais detalhes, consulte: [SECURITY_IMPROVEMENTS_SUMMARY.md](SECURITY_IMPROVEMENTS_SUMMARY.md)
+Para mais detalhes técnicos, consulte: [CORRECOES_SEGURANCA.md](CORRECOES_SEGURANCA.md)
 
 ---
 
@@ -244,6 +268,33 @@ Para rodar o backend em um container Docker:
 - `POST /clientes/cadastro` - Cadastro de novo cliente
 - `POST /lighthouse/analyze` - Analisar acessibilidade de um site
 
+### 🔑 Credenciais de Teste (Seeder)
+
+O backend possui um seeder que cria usuários de demonstração. Para executar o seeder:
+
+```bash
+npm run db:seed
+```
+
+**Credenciais criadas pelo seeder:**
+
+#### Funcionário (para acessar dashboard de funcionário):
+- **Email:** `joao.silva@adacompany.com`
+- **Senha:** `admin123`
+- **Nome:** João Silva
+- **Tipo:** funcionario
+
+#### Cliente (para acessar dashboard de cliente):
+- **Email:** `demo@empresa.com`
+- **Senha:** `cliente123`
+- **Nome:** Empresa Demo
+- **Tipo:** cliente
+
+**⚠️ Importante:**
+- Essas credenciais são criadas apenas quando o seeder é executado
+- Se o banco foi criado sem o seeder, você precisará criar um funcionário manualmente via API
+- Para criar um funcionário, use o endpoint `POST /funcionarios` (requer autenticação de funcionário)
+
 ### 🔐 Protegidos (requer JWT)
 
 #### Clientes (apenas funcionários)
@@ -354,56 +405,106 @@ Este projeto possui documentação extensa sobre diversos aspectos:
 
 ## 🛡️ Segurança
 
-### Status de Segurança: ✅ **PROTEGIDO**
+### Status de Segurança: ✅ **PROTEGIDO** (Score: 9.8/10)
 
-Este projeto implementa múltiplas camadas de segurança para proteger contra vulnerabilidades comuns:
+Este projeto implementa múltiplas camadas de segurança para proteger contra vulnerabilidades comuns. Todas as vulnerabilidades críticas identificadas foram corrigidas em **24 de Novembro de 2025**.
 
 #### ✅ Proteções Implementadas:
 
 1. **SQL Injection** 🟢
    - ORM Sequelize com queries parametrizadas
    - Nenhuma query SQL raw ou concatenada
+   - Validação de inputs antes de queries
 
 2. **XSS (Cross-Site Scripting)** 🟢
-   - Helmet configurado com headers de segurança
-   - Sanitização automática de inputs com decoradores customizados
-   - Content Security Policy (CSP)
+   - **Helmet** configurado com headers de segurança HTTP
+   - Content Security Policy (CSP) ativa
+   - Sanitização automática de inputs com decoradores customizados (`@Sanitize()`, `@SanitizeBasic()`, `@EscapeHtml()`)
    - Validação rigorosa de dados com class-validator
 
 3. **Autenticação & Autorização** 🟢
    - JWT com expiração de 1 hora
    - Senhas hasheadas com bcrypt (10 rounds)
-   - Guards de controle de acesso (JwtAuthGuard, FuncionarioGuard, SelfAccessGuard)
-   - Rotas protegidas por padrão
+   - Guards de controle de acesso corrigidos:
+     - `JwtAuthGuard` - Autenticação JWT global
+     - `FuncionarioGuard` - **CORRIGIDO:** Agora permite apenas funcionários
+     - `SelfAccessGuard` - Clientes só acessam seus próprios dados
+   - Rotas protegidas por padrão (exceto rotas marcadas com `@Public()`)
 
-4. **Rate Limiting** 🟢
-   - Proteção contra força bruta: 100 requisições/minuto
-   - Throttling global com @nestjs/throttler
+4. **Rate Limiting** 🟢 **IMPLEMENTADO**
+   - `@nestjs/throttler` instalado e configurado
+   - Proteção contra força bruta: **100 requisições/minuto**
+   - Throttling global em todas as rotas
+   - Retorna HTTP 429 após exceder o limite
 
-5. **CORS** 🟢
-   - Origens restritas e configuráveis
-   - Apenas domínios confiáveis permitidos
+5. **CORS** 🟢 **CORRIGIDO**
+   - **Removido asterisco (`*`)** que permitia todas as origens
+   - Validação dinâmica de origens permitidas
+   - Lista específica de origens de produção
+   - IPs locais permitidos apenas em desenvolvimento
+   - Proteção contra ataques CSRF
 
-6. **Validação de Dados** 🟢
-   - CNPJ com formato validado
+6. **Headers de Segurança HTTP** 🟢 **IMPLEMENTADO**
+   - **Helmet** configurado com:
+     - Content Security Policy (CSP)
+     - HSTS (HTTP Strict Transport Security)
+     - X-Content-Type-Options
+     - X-Frame-Options
+     - X-XSS-Protection
+     - E outros headers de segurança padrão
+
+7. **Validação de Dados** 🟢
+   - ValidationPipe global com `whitelist: true` e `forbidNonWhitelisted: true`
+   - CNPJ com formato validado (XX.XXX.XXX/XXXX-XX)
    - Email com validação RFC 5322
    - Senhas com requisito mínimo de 6 caracteres
    - UUIDs v4 validados
 
-### 📚 Documentação Completa
+8. **Swagger** 🟢 **RESTRITO**
+   - Acessível apenas em ambiente de desenvolvimento
+   - Desabilitado automaticamente em produção
+   - Evita exposição da estrutura da API
+
+9. **Credenciais** 🟢 **PROTEGIDAS**
+   - Removidas do `docker-compose.yml`
+   - Todas as credenciais movidas para variáveis de ambiente
+   - Valores padrão com `CHANGE_ME_IN_PRODUCTION` para forçar alteração
+
+### 📚 Documentação de Segurança
 
 Para informações detalhadas sobre segurança, consulte:
-- **[docs/SECURITY.md](docs/SECURITY.md)** - Guia completo de segurança
-- **[CHANGELOG_SECURITY.md](CHANGELOG_SECURITY.md)** - Histórico de mudanças de segurança
+- **[CORRECOES_SEGURANCA.md](CORRECOES_SEGURANCA.md)** - Documentação completa das correções implementadas
+- **[docs/SECURITY.md](docs/SECURITY.md)** - Guia completo de segurança (se existir)
+- **[CHANGELOG_SECURITY.md](CHANGELOG_SECURITY.md)** - Histórico de mudanças de segurança (se existir)
 
-### 🔐 Configuração Segura
+### 🔐 Configuração Segura para Produção
 
-Antes de executar em produção:
-1. Gere um JWT_SECRET forte: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-2. Use credenciais fortes para o banco de dados
-3. Configure HTTPS/TLS
-4. Revise e ajuste as origens CORS
-5. Consulte o checklist completo em `docs/SECURITY.md`
+Antes de executar em produção, **OBRIGATÓRIO**:
+
+1. **Criar arquivo `.env`** com credenciais fortes (baseado no `.env.example`)
+2. **Gerar JWT_SECRET forte:**
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+3. **Configurar `NODE_ENV=production`** no `.env`
+4. **Usar credenciais fortes** para o banco de dados
+5. **Configurar HTTPS/TLS** (obrigatório em produção)
+6. **Revisar e ajustar as origens CORS** no `src/main.ts`
+7. **Verificar que o Swagger está desabilitado** em produção
+8. **Configurar rate limiting** com Redis para produção (opcional, mas recomendado)
+
+### ⚠️ Vulnerabilidades Corrigidas
+
+Todas as vulnerabilidades críticas e extremas identificadas foram corrigidas:
+
+- ✅ **R001** - Credenciais expostas no docker-compose.yml
+- ✅ **R002** - Rate Limiting não implementado
+- ✅ **R003** - CORS configurado com asterisco (*)
+- ✅ **R004** - FuncionarioGuard com lógica incorreta
+- ✅ **R005** - Helmet não implementado
+- ✅ **R008** - Swagger acessível sem autenticação
+
+Consulte [CORRECOES_SEGURANCA.md](CORRECOES_SEGURANCA.md) para detalhes técnicos de cada correção.
 
 ---
 

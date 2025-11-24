@@ -7,5 +7,6 @@ export interface ClienteRepository {
   update(id: string, data: Partial<Cliente>): Promise<[number, Cliente[]]>;
   delete(id: string): Promise<number>;
   findByEmail(email: string): Promise<Cliente | null>;
+  findByIdUsuario(id_usuario: string): Promise<Cliente | null>;
   // Adicione outros métodos conforme necessário
 } 

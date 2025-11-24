@@ -211,7 +211,11 @@ export class OrcamentoController {
   }
 
   @Post(':id/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    },
+  }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Fazer upload do PDF do orçamento' })
   @ApiParam({ name: 'id', description: 'ID do orçamento' })

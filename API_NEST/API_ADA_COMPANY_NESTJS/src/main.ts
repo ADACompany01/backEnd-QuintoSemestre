@@ -13,7 +13,10 @@ async function bootstrap() {
    origin: [
      'http://localhost:3000',
      'http://localhost:8081', 
-     'http://192.168.50.58:8081',
+     'http://192.168.1.7:3000', // Backend na rede local (IP atual)
+     'http://192.168.1.7:8081', // Expo na rede local (IP atual)
+     'http://192.168.50.58:3000', // IP anterior (mantido para compatibilidade)
+     'http://192.168.50.58:8081', // IP anterior (mantido para compatibilidade)
      'https://newadacompany.vercel.app',
      '*' // Permitir todas durante desenvolvimento
    ],
@@ -55,6 +58,6 @@ async function bootstrap() {
   
   console.log(`Aplicação rodando na porta ${port}`);
   console.log(`Documentação Swagger disponível em: http://localhost:${port}/api`);
-  console.log(`Acessível via rede local em: http://192.168.50.58:${port}/api`);
+  console.log(`Acessível via rede local em: http://192.168.1.7:${port}/api`);
 }
 bootstrap();

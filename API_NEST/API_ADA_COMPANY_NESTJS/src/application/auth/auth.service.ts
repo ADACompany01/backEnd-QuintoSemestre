@@ -127,6 +127,13 @@ export class AuthService {
     try {
       this.logger.log(`[register] Iniciando registro para email: ${data.email}`);
       
+      // SEGURANÇA: Bloquear cadastro de funcionários pelo endpoint público
+      // Funcionários devem ser cadastrados apenas por administradores autenticados
+      if (data.type === 'employee') {
+        this.logger.warn(`[register] Tentativa de cadastro de funcionário bloqueada: ${data.email}`);
+        throw new UnauthorizedException('Cadastro de funcionários não é permitido por este endpoint');
+      }
+      
       // Verificar se email já existe
       const existingUser = await this.usuarioRepository.findByEmail(data.email);
       if (existingUser) {
@@ -137,8 +144,8 @@ export class AuthService {
       // Hash da senha
       const hashedPassword = await bcrypt.hash(data.password, 10);
 
-      // Mapear tipo do frontend (client/employee) para backend (cliente/funcionario)
-      const tipoUsuario = data.type === 'employee' ? 'funcionario' : 'cliente';
+      // Sempre criar como cliente (tipo padrão)
+      const tipoUsuario = 'cliente';
       this.logger.log(`[register] Tipo de usuário: ${tipoUsuario}`);
 
       // Criar usuário
@@ -152,74 +159,42 @@ export class AuthService {
       
       this.logger.log(`[register] Usuário criado com ID: ${newUser.id_usuario}`);
 
-      // IMPORTANTE: Também criar registro na tabela funcionarios ou clientes
-      if (tipoUsuario === 'funcionario') {
-        this.logger.log(`[register] Criando registro de funcionário...`);
+      // IMPORTANTE: Criar registro na tabela clientes (apenas clientes podem se cadastrar)
+      this.logger.log(`[register] Criando registro de cliente...`);
+      
+      try {
+        // Gerar CNPJ temporário único baseado no timestamp e id do usuário
+        const timestamp = Date.now().toString().slice(-8);
+        const cnpjTemporario = `${timestamp.slice(0, 2)}.${timestamp.slice(2, 5)}.${timestamp.slice(5, 8)}/${newUser.id_usuario.slice(0, 4)}-${timestamp.slice(-2)}`;
         
-        try {
-          await this.funcionarioModel.create({
-            nome_completo: data.name,
-            email: data.email,
-            telefone: data.phone || '',
-            id_usuario: newUser.id_usuario,
-          });
-          
-          this.logger.log(`[register] Funcionário criado com sucesso`);
-        } catch (funcError) {
-          this.logger.error(`[register] Erro ao criar funcionário:`, {
-            message: funcError.message,
-            name: funcError.name,
-            errors: funcError.errors,
-            stack: funcError.stack
-          });
-          
-          // Reverter criação do usuário
-          try {
-            await this.usuarioModel.destroy({ where: { id_usuario: newUser.id_usuario } });
-            this.logger.log(`[register] Rollback do usuário executado com sucesso`);
-          } catch (rollbackError) {
-            this.logger.error(`[register] Erro ao fazer rollback do usuário: ${rollbackError.message}`);
-          }
-          
-          throw new UnauthorizedException(`Erro ao criar registro de funcionário: ${funcError.message}`);
-        }
-      } else {
-        this.logger.log(`[register] Criando registro de cliente...`);
+        this.logger.log(`[register] CNPJ temporário gerado: ${cnpjTemporario}`);
         
+        const cliente = await this.clienteModel.create({
+          nome_completo: data.name,
+          email: data.email,
+          telefone: data.phone || '',
+          cnpj: cnpjTemporario,
+          id_usuario: newUser.id_usuario,
+        });
+        
+        this.logger.log(`[register] Cliente criado com sucesso - ID: ${cliente.id_cliente}`);
+      } catch (clientError) {
+        this.logger.error(`[register] Erro ao criar cliente:`, {
+          message: clientError.message,
+          name: clientError.name,
+          errors: clientError.errors,
+          stack: clientError.stack
+        });
+        
+        // Reverter criação do usuário
         try {
-          // Gerar CNPJ temporário único baseado no timestamp e id do usuário
-          const timestamp = Date.now().toString().slice(-8);
-          const cnpjTemporario = `${timestamp.slice(0, 2)}.${timestamp.slice(2, 5)}.${timestamp.slice(5, 8)}/${newUser.id_usuario.slice(0, 4)}-${timestamp.slice(-2)}`;
-          
-          this.logger.log(`[register] CNPJ temporário gerado: ${cnpjTemporario}`);
-          
-          const cliente = await this.clienteModel.create({
-            nome_completo: data.name,
-            email: data.email,
-            telefone: data.phone || '',
-            cnpj: cnpjTemporario,
-            id_usuario: newUser.id_usuario,
-          });
-          
-          this.logger.log(`[register] Cliente criado com sucesso - ID: ${cliente.id_cliente}`);
-        } catch (clientError) {
-          this.logger.error(`[register] Erro ao criar cliente:`, {
-            message: clientError.message,
-            name: clientError.name,
-            errors: clientError.errors,
-            stack: clientError.stack
-          });
-          
-          // Reverter criação do usuário
-          try {
-            await this.usuarioModel.destroy({ where: { id_usuario: newUser.id_usuario } });
-            this.logger.log(`[register] Rollback do usuário executado com sucesso`);
-          } catch (rollbackError) {
-            this.logger.error(`[register] Erro ao fazer rollback do usuário: ${rollbackError.message}`);
-          }
-          
-          throw new UnauthorizedException(`Erro ao criar registro de cliente: ${clientError.message}`);
+          await this.usuarioModel.destroy({ where: { id_usuario: newUser.id_usuario } });
+          this.logger.log(`[register] Rollback do usuário executado com sucesso`);
+        } catch (rollbackError) {
+          this.logger.error(`[register] Erro ao fazer rollback do usuário: ${rollbackError.message}`);
         }
+        
+        throw new UnauthorizedException(`Erro ao criar registro de cliente: ${clientError.message}`);
       }
 
       // Gerar token

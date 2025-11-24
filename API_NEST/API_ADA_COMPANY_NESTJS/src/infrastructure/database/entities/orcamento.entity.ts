@@ -46,4 +46,11 @@ export class Orcamento extends Model<Orcamento> {
 
   @HasOne(() => Contrato)
   contrato: Contrato;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'arquivo_orcamento',
+  })
+  arquivo_orcamento?: string;
 } 

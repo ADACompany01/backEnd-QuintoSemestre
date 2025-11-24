@@ -56,4 +56,18 @@ export class Contrato extends Model<Contrato> {
     field: 'data_entrega',
   })
   data_entrega: Date;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'arquivo_contrato',
+  })
+  arquivo_contrato?: string;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    field: 'contrato_assinado_url',
+  })
+  contrato_assinado_url?: string;
 } 

@@ -55,7 +55,6 @@ async function bootstrap() {
   }
 
   app.enableCors({
-<<<<<<< HEAD
    origin: [
      'http://localhost:3000',
      'http://localhost:8081', 
@@ -65,25 +64,6 @@ async function bootstrap() {
    ],
    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
    credentials: true,
-=======
-    origin: (origin, callback) => {
-      // Permitir requisições sem origin (mobile apps, Postman, etc.) apenas em desenvolvimento
-      if (!origin && isDevelopment) {
-        return callback(null, true);
-      }
-      
-      // Verificar se a origin está na lista permitida
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Não permitido pelo CORS'));
-      }
-    },
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['X-Total-Count'],
->>>>>>> development
   });
   
   // Configurar limite de tamanho para uploads (50MB)

@@ -41,7 +41,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 
 # Expõe a porta (ajuste se necessário)
-EXPOSE 3001 # Usando 3001, conforme o container listado no seu primeiro log (api-backend-mobile)
+EXPOSE 3001
 
 # Comando para iniciar a aplicação
 # Nota: A rota do binário do Chromium será resolvida automaticamente pela biblioteca Lighthouse

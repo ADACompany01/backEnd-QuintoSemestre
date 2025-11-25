@@ -46,4 +46,4 @@ EXPOSE 3001
 # Comando para iniciar a aplicação
 # Nota: A rota do binário do Chromium será resolvida automaticamente pela biblioteca Lighthouse
 # se você instalou o 'chromium' via apk ou usou puppeteer.
-CMD ["node","dist/src/main.js"]
+CMD ["dist/src/main.js"]

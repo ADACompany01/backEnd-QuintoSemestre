@@ -41,7 +41,7 @@ async function bootstrap() {
     'http://localhost:3000',
     'http://localhost:8081',
     'https://newadacompany.vercel.app',
-    'https://backend-adacompany.onrender.com',
+    'https://adacompany.duckdns.org',
   ];
 
   // Adicionar IPs locais apenas em desenvolvimento

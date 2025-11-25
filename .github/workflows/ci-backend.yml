@@ -246,6 +246,7 @@ jobs:
               -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
               -e DB_DATABASE=${{ secrets.DB_DATABASE }} \
               -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+              -e MONGODB_URI="${{ secrets.MONGODB_URI }}" \
               ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:latest
 
       - name: Enviar Notificação de Erro (se o job falhar)

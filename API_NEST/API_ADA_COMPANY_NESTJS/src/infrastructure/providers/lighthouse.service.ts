@@ -56,7 +56,7 @@ export class LighthouseService {
     }
     
     // Caminho para o binário Chromium instalado via APK no Dockerfile
-    const CHROME_EXECUTABLE_PATH = '/usr/bin/chromium-browser';
+    const CHROME_EXECUTABLE_PATH = '/usr/bin/chromium';
 
     // Importação dinâmica do chrome-launcher (ES Module)
     const chromeLauncherModule = await import('chrome-launcher');

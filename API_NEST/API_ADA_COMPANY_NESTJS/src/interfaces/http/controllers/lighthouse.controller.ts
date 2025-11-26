@@ -9,6 +9,16 @@ export class LighthouseController {
   @Public()
   @Get('health')
   async healthCheck() {
+    return this.getHealthStatus();
+  }
+
+  @Public()
+  @Get()
+  async healthCheckRoot() {
+    return this.getHealthStatus();
+  }
+
+  private async getHealthStatus() {
     try {
       const health = await this.lighthouseService.checkHealth();
       return {

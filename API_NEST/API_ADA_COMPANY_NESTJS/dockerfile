@@ -39,6 +39,7 @@ WORKDIR /app
 # O Chromium é necessário em runtime para o Lighthouse funcionar
 RUN apk add --no-cache \
     chromium \
+    chromium-chromedriver \
     nss \
     freetype \
     harfbuzz \
@@ -47,17 +48,19 @@ RUN apk add --no-cache \
     libstdc++ \
     libgcc \
     ca-certificates \
-    ttf-dejavu
+    ttf-dejavu \
+    && echo "Chromium instalado"
 
-# No Alpine Linux, o Chromium pode estar em /usr/bin/chromium-browser
-# Criar link simbólico para /usr/bin/chromium se não existir
-RUN if [ ! -f /usr/bin/chromium ] && [ -f /usr/bin/chromium-browser ]; then \
-      ln -s /usr/bin/chromium-browser /usr/bin/chromium; \
-    fi
-
-# Verificar se o Chromium está disponível
-RUN ls -la /usr/bin/chromium* || true && \
-    which chromium || which chromium-browser || echo "Chromium não encontrado no PATH"
+# Verificar onde o Chromium foi instalado e criar link simbólico
+RUN CHROME_BIN=$(which chromium 2>/dev/null || which chromium-browser 2>/dev/null || find /usr -name "chromium*" -type f 2>/dev/null | head -1) && \
+    echo "Chromium encontrado em: $CHROME_BIN" && \
+    if [ -n "$CHROME_BIN" ] && [ "$CHROME_BIN" != "/usr/bin/chromium" ]; then \
+      echo "Criando link simbólico de $CHROME_BIN para /usr/bin/chromium" && \
+      ln -sf "$CHROME_BIN" /usr/bin/chromium; \
+    fi && \
+    ls -la /usr/bin/chromium* 2>/dev/null || echo "Nenhum arquivo chromium encontrado em /usr/bin" && \
+    (test -f /usr/bin/chromium || test -x /usr/bin/chromium-browser) || (echo "ERRO: Chromium não encontrado após instalação!" && apk list chromium && exit 1) && \
+    echo "Chromium verificado com sucesso"
 
 # Define variável de ambiente para o caminho do Chromium
 # O código tentará encontrar automaticamente o caminho correto

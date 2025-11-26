@@ -49,7 +49,18 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-dejavu
 
+# No Alpine Linux, o Chromium pode estar em /usr/bin/chromium-browser
+# Criar link simbólico para /usr/bin/chromium se não existir
+RUN if [ ! -f /usr/bin/chromium ] && [ -f /usr/bin/chromium-browser ]; then \
+      ln -s /usr/bin/chromium-browser /usr/bin/chromium; \
+    fi
+
+# Verificar se o Chromium está disponível
+RUN ls -la /usr/bin/chromium* || true && \
+    which chromium || which chromium-browser || echo "Chromium não encontrado no PATH"
+
 # Define variável de ambiente para o caminho do Chromium
+# O código tentará encontrar automaticamente o caminho correto
 ENV CHROME_PATH=/usr/bin/chromium
 ENV CHROME_BIN=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true

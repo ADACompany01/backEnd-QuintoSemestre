@@ -12,18 +12,39 @@ export class LighthouseService {
    * Verifica a saúde do serviço Lighthouse (se o Chromium está disponível)
    */
   async checkHealth() {
-    const CHROME_EXECUTABLE_PATH = process.env.CHROME_PATH || process.env.CHROME_BIN || '/usr/bin/chromium';
+    // Tentar encontrar o Chromium em vários caminhos possíveis
+    const possiblePaths = [
+      process.env.CHROME_PATH,
+      process.env.CHROME_BIN,
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+    ].filter(Boolean) as string[];
+
+    let CHROME_EXECUTABLE_PATH = possiblePaths[0] || '/usr/bin/chromium';
+    
+    // Procurar o Chromium nos caminhos possíveis
+    for (const path of possiblePaths) {
+      if (fs.existsSync(path)) {
+        CHROME_EXECUTABLE_PATH = path;
+        break;
+      }
+    }
     
     try {
       // Verificar se o Chromium existe
       const chromiumExists = fs.existsSync(CHROME_EXECUTABLE_PATH);
       
       if (!chromiumExists) {
+        // Listar caminhos possíveis para debug
+        const checkedPaths = possiblePaths.map(p => ({ path: p, exists: fs.existsSync(p) }));
         return {
           chromium: {
             available: false,
             path: CHROME_EXECUTABLE_PATH,
-            error: 'Chromium não encontrado no caminho especificado',
+            checkedPaths,
+            error: 'Chromium não encontrado em nenhum dos caminhos verificados',
           },
         };
       }
@@ -125,21 +146,36 @@ export class LighthouseService {
     }
     console.log(`[LighthouseService] URL validada com sucesso`);
     
-    // Caminho para o binário Chromium instalado via APK no Dockerfile
-    const CHROME_EXECUTABLE_PATH = process.env.CHROME_PATH || process.env.CHROME_BIN || '/usr/bin/chromium';
-    console.log(`[LighthouseService] Caminho do Chromium: ${CHROME_EXECUTABLE_PATH}`);
+    // Tentar encontrar o Chromium em vários caminhos possíveis
+    const possiblePaths = [
+      process.env.CHROME_PATH,
+      process.env.CHROME_BIN,
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+    ].filter(Boolean) as string[];
+
+    let CHROME_EXECUTABLE_PATH = possiblePaths[0] || '/usr/bin/chromium';
+    
+    // Procurar o Chromium nos caminhos possíveis
+    console.log(`[LighthouseService] Procurando Chromium nos caminhos: ${possiblePaths.join(', ')}`);
+    for (const path of possiblePaths) {
+      if (fs.existsSync(path)) {
+        CHROME_EXECUTABLE_PATH = path;
+        console.log(`[LighthouseService] Chromium encontrado em: ${CHROME_EXECUTABLE_PATH}`);
+        break;
+      }
+    }
     
     // Verificar se o Chromium existe
-    try {
-      if (!fs.existsSync(CHROME_EXECUTABLE_PATH)) {
-        console.error(`[LighthouseService] Chromium não encontrado no caminho: ${CHROME_EXECUTABLE_PATH}`);
-        throw new Error(`Chromium não encontrado no caminho: ${CHROME_EXECUTABLE_PATH}`);
-      }
-      console.log(`[LighthouseService] Chromium encontrado no caminho especificado`);
-    } catch (error) {
-      console.error(`[LighthouseService] Erro ao verificar Chromium:`, error);
-      throw new Error(`Chromium não encontrado no caminho: ${CHROME_EXECUTABLE_PATH}. Verifique a instalação do Chromium no container.`);
+    if (!fs.existsSync(CHROME_EXECUTABLE_PATH)) {
+      const checkedPaths = possiblePaths.map(p => ({ path: p, exists: fs.existsSync(p) }));
+      console.error(`[LighthouseService] Chromium não encontrado em nenhum dos caminhos:`, checkedPaths);
+      throw new Error(`Chromium não encontrado. Caminhos verificados: ${possiblePaths.join(', ')}`);
     }
+    
+    console.log(`[LighthouseService] Usando Chromium em: ${CHROME_EXECUTABLE_PATH}`);
     
     let chrome: any = null;
 

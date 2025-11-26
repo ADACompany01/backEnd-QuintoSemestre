@@ -40,8 +40,9 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       DYNAMODB_TABLE_LOGS: ${DYNAMODB_TABLE_LOGS:-ada-company-logs}
-      MONGODB_HOST: ${MONGODB_HOST:-mongodb}
-      MONGODB_PORT: ${MONGODB_PORT:-27017}
+      # Forçar uso do serviço MongoDB local do Docker, ignorando .env
+      MONGODB_HOST: mongodb
+      MONGODB_PORT: 27017
       MONGODB_DATABASE: ${MONGODB_DATABASE:-adacompany}
       MONGODB_USERNAME: ${MONGODB_USERNAME:-adacompanysteam}
       MONGODB_PASSWORD: ${MONGODB_PASSWORD:-CHANGE_ME_IN_PRODUCTION}
@@ -53,6 +54,8 @@ services:
       PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
     depends_on:
       database:
+        condition: service_healthy
+      mongodb:
         condition: service_healthy
     restart: always
     # Limites de recursos para evitar problemas de memória
@@ -112,10 +115,11 @@ services:
     networks:
       - ada_network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand(\"ping\")' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
 volumes:
   db_data:

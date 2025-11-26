@@ -74,6 +74,9 @@ async function bootstrap() {
   const express = require('express');
   app.use('/uploads', express.static('uploads'));
 
+  // Configurar prefixo global para todas as rotas
+  app.setGlobalPrefix('api');
+
   // Adicionar ValidationPipe global
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,

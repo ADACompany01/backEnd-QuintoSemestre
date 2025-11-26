@@ -2,7 +2,7 @@ import { Body, Controller, HttpException, HttpStatus, Post } from '@nestjs/commo
 import { LighthouseService } from '../../../infrastructure/providers/lighthouse.service';
 import { Public } from '../decorators/public.decorator';
 
-@Controller('lighthouse')
+@Controller('mobile/lighthouse')
 export class LighthouseController {
   constructor(private readonly lighthouseService: LighthouseService) {}
 

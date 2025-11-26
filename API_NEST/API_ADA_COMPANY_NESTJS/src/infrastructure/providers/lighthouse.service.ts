@@ -15,17 +15,69 @@ export class LighthouseService {
   private findChromiumPath(): string | null {
     try {
       // Tentar usar 'which' ou 'command -v' para encontrar o Chromium
-      const commands = ['which chromium-browser', 'which chromium', 'command -v chromium-browser', 'command -v chromium'];
+      const commands = [
+        'which chromium-browser',
+        'which chromium',
+        'command -v chromium-browser',
+        'command -v chromium',
+      ];
       
       for (const cmd of commands) {
         try {
-          const result = execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+          const result = execSync(cmd, { 
+            encoding: 'utf-8', 
+            stdio: ['ignore', 'pipe', 'ignore'],
+            timeout: 5000 // Timeout de 5 segundos
+          }).trim();
+          
           if (result && fs.existsSync(result)) {
-            console.log(`[LighthouseService] Chromium encontrado via comando do sistema: ${result}`);
-            return result;
+            // Verificar se é um arquivo ou link simbólico válido
+            try {
+              const stats = fs.statSync(result);
+              if (stats.isFile() || stats.isSymbolicLink()) {
+                // Se for link simbólico, tentar resolver
+                const resolvedPath = stats.isSymbolicLink() 
+                  ? fs.readlinkSync(result) 
+                  : result;
+                
+                console.log(`[LighthouseService] Chromium encontrado via comando do sistema: ${result}${stats.isSymbolicLink() ? ` (link para: ${resolvedPath})` : ''}`);
+                return result;
+              }
+            } catch (statError) {
+              // Continuar tentando outros comandos
+              continue;
+            }
           }
         } catch (e) {
           // Comando falhou, tentar próximo
+          continue;
+        }
+      }
+      
+      // Tentar procurar manualmente em diretórios comuns
+      const commonDirs = ['/usr/bin', '/usr/local/bin', '/opt/chromium'];
+      for (const dir of commonDirs) {
+        try {
+          if (fs.existsSync(dir)) {
+            const files = fs.readdirSync(dir);
+            const chromiumFiles = files.filter(f => 
+              f.includes('chromium') && !f.includes('.so')
+            );
+            
+            for (const file of chromiumFiles) {
+              const fullPath = require('path').join(dir, file);
+              try {
+                const stats = fs.statSync(fullPath);
+                if (stats.isFile() && (stats.mode & parseInt('111', 8)) !== 0) {
+                  console.log(`[LighthouseService] Chromium encontrado via busca manual: ${fullPath}`);
+                  return fullPath;
+                }
+              } catch (e) {
+                continue;
+              }
+            }
+          }
+        } catch (e) {
           continue;
         }
       }
@@ -183,12 +235,15 @@ export class LighthouseService {
     
     // Tentar encontrar o Chromium em vários caminhos possíveis
     // No Alpine Linux, o Chromium pode estar em diferentes locais
+    
+    // Primeiro, tentar buscar dinamicamente via comandos do sistema
+    const dynamicPath = this.findChromiumPath();
+    
     const possiblePaths = [
       process.env.CHROME_PATH,
       process.env.CHROME_BIN,
       process.env.PUPPETEER_EXECUTABLE_PATH,
-      // Buscar dinamicamente via comandos do sistema
-      this.findChromiumPath(),
+      dynamicPath, // Buscar dinamicamente via comandos do sistema
       '/usr/bin/chromium',
       '/usr/bin/chromium-browser',
       '/usr/bin/google-chrome',
@@ -198,26 +253,56 @@ export class LighthouseService {
       '/opt/chromium/chromium',
     ].filter(Boolean) as string[];
 
-    let CHROME_EXECUTABLE_PATH = possiblePaths[0] || '/usr/bin/chromium';
+    let CHROME_EXECUTABLE_PATH: string | null = null;
     
     // Procurar o Chromium nos caminhos possíveis
     console.log(`[LighthouseService] Procurando Chromium nos caminhos: ${possiblePaths.join(', ')}`);
     for (const path of possiblePaths) {
       if (path && fs.existsSync(path)) {
-        CHROME_EXECUTABLE_PATH = path;
-        console.log(`[LighthouseService] Chromium encontrado em: ${CHROME_EXECUTABLE_PATH}`);
-        break;
+        // Verificar se é um arquivo executável
+        try {
+          const stats = fs.statSync(path);
+          if (stats.isFile() && (stats.mode & parseInt('111', 8)) !== 0) {
+            CHROME_EXECUTABLE_PATH = path;
+            console.log(`[LighthouseService] Chromium encontrado e é executável em: ${CHROME_EXECUTABLE_PATH}`);
+            break;
+          }
+        } catch (statError) {
+          // Se não conseguir verificar permissões, ainda pode tentar usar
+          CHROME_EXECUTABLE_PATH = path;
+          console.log(`[LighthouseService] Chromium encontrado em: ${CHROME_EXECUTABLE_PATH} (permissões não verificadas)`);
+          break;
+        }
       }
     }
     
-    // Verificar se o Chromium existe
-    if (!fs.existsSync(CHROME_EXECUTABLE_PATH)) {
-      const checkedPaths = possiblePaths.map(p => ({ path: p, exists: fs.existsSync(p) }));
-      console.error(`[LighthouseService] Chromium não encontrado em nenhum dos caminhos:`, checkedPaths);
-      throw new Error(`Chromium não encontrado. Caminhos verificados: ${possiblePaths.join(', ')}`);
+    // Verificar se o Chromium foi encontrado
+    if (!CHROME_EXECUTABLE_PATH || !fs.existsSync(CHROME_EXECUTABLE_PATH)) {
+      const checkedPaths = possiblePaths.map(p => ({ 
+        path: p, 
+        exists: p ? fs.existsSync(p) : false 
+      }));
+      console.error(`[LighthouseService] Chromium não encontrado em nenhum dos caminhos:`, JSON.stringify(checkedPaths, null, 2));
+      
+      // Tentar listar o que existe em /usr/bin para debug
+      try {
+        const usrBinFiles = fs.readdirSync('/usr/bin').filter(f => f.includes('chrom'));
+        console.error(`[LighthouseService] Arquivos relacionados ao chromium em /usr/bin:`, usrBinFiles);
+      } catch (e) {
+        console.error(`[LighthouseService] Não foi possível ler /usr/bin:`, e.message);
+      }
+      
+      throw new Error(`Chromium não encontrado. Caminhos verificados: ${possiblePaths.filter(Boolean).join(', ')}`);
     }
     
+    // Garantir que o caminho seja absoluto
+    CHROME_EXECUTABLE_PATH = require('path').resolve(CHROME_EXECUTABLE_PATH);
     console.log(`[LighthouseService] Usando Chromium em: ${CHROME_EXECUTABLE_PATH}`);
+    
+    // Verificação final antes de passar para o chrome-launcher
+    if (!fs.existsSync(CHROME_EXECUTABLE_PATH)) {
+      throw new Error(`Caminho do Chromium não existe após resolução: ${CHROME_EXECUTABLE_PATH}`);
+    }
     
     let chrome: any = null;
 
@@ -227,10 +312,17 @@ export class LighthouseService {
       const chromeLauncherModule = await import('chrome-launcher');
       const chromeLauncher = chromeLauncherModule.default || chromeLauncherModule;
       
+      // Garantir que o caminho seja absoluto e válido antes de passar para o launcher
+      if (!CHROME_EXECUTABLE_PATH) {
+        throw new Error('CHROME_EXECUTABLE_PATH não está definido');
+      }
+      
+      console.log(`[LighthouseService] Iniciando Chrome Launcher com caminho: ${CHROME_EXECUTABLE_PATH}`);
       chrome = await chromeLauncher.launch({
         // CORREÇÃO CRÍTICA: Prioriza o caminho do Chromium instalado via APK no Alpine.
         // Usa CHROME_EXECUTABLE_PATH como fallback se a variável de ambiente CHROME_PATH não estiver definida.
-        chromePath: CHROME_EXECUTABLE_PATH, 
+        chromePath: CHROME_EXECUTABLE_PATH,
+        logLevel: 'silent', // Reduzir logs do chrome-launcher
         chromeFlags: [
           '--headless',
           '--disable-gpu',

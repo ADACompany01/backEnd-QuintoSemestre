@@ -179,6 +179,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: API_NEST/API_ADA_COMPANY_NESTJS
+          file: API_NEST/API_ADA_COMPANY_NESTJS/dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:latest
@@ -247,6 +248,10 @@ jobs:
               -e DB_DATABASE=${{ secrets.DB_DATABASE }} \
               -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
               -e MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+              -e CHROME_PATH=/usr/bin/chromium \
+              -e CHROME_BIN=/usr/bin/chromium \
+              -e PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+              -e PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
               ${{ secrets.DOCKER_USERNAME }}/ada-company-backend-mobile:latest
 
       - name: Enviar Notificação de Erro (se o job falhar)

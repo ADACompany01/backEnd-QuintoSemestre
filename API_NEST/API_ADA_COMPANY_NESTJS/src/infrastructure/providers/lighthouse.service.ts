@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import chromium from 'chromium';
 import * as https from 'https';
 import * as http from 'http';
+
+// O pacote 'chromium' (npm) não é mais usado para o caminho
+// import chromium from 'chromium'; // <--- REMOVIDO OU IGNORADO
 
 @Injectable()
 export class LighthouseService {
@@ -53,12 +55,17 @@ export class LighthouseService {
       throw new Error(`A URL "${url}" não pôde ser acessada. Verifique se o endereço está correto e se o site está online.`);
     }
     
+    // Caminho para o binário Chromium instalado via APK no Dockerfile
+    const CHROME_EXECUTABLE_PATH = '/usr/bin/chromium-browser';
+
     // Importação dinâmica do chrome-launcher (ES Module)
     const chromeLauncherModule = await import('chrome-launcher');
     const chromeLauncher = chromeLauncherModule.default || chromeLauncherModule;
     
     const chrome = await chromeLauncher.launch({
-      chromePath: process.env.CHROME_PATH || chromium.path,
+      // CORREÇÃO CRÍTICA: Prioriza o caminho do Chromium instalado via APK no Alpine.
+      // Usa CHROME_EXECUTABLE_PATH como fallback se a variável de ambiente CHROME_PATH não estiver definida.
+      chromePath: process.env.CHROME_PATH || CHROME_EXECUTABLE_PATH, 
       chromeFlags: [
         '--headless',
         '--disable-gpu',
@@ -164,4 +171,4 @@ export class LighthouseService {
       throw new Error(`Não foi possível analisar o site. Verifique se a URL está correta e tente novamente.`);
     }
   }
-} 
+}

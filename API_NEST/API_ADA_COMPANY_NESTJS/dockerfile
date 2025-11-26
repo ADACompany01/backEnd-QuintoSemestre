@@ -35,15 +35,33 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# CRÍTICO: Instala o Chromium e dependências na imagem final
+# O Chromium é necessário em runtime para o Lighthouse funcionar
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ttf-freefont \
+    udev \
+    libstdc++ \
+    libgcc \
+    ca-certificates \
+    ttf-dejavu
+
+# Define variável de ambiente para o caminho do Chromium
+ENV CHROME_PATH=/usr/bin/chromium
+ENV CHROME_BIN=/usr/bin/chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
 # Copia apenas o que é necessário da imagem de build
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 
-# Expõe a porta (ajuste se necessário)
+# Expõe a porta
 EXPOSE 3001
 
 # Comando para iniciar a aplicação
-# Nota: A rota do binário do Chromium será resolvida automaticamente pela biblioteca Lighthouse
-# se você instalou o 'chromium' via apk ou usou puppeteer.
-CMD ["dist/src/main.js"]
+CMD ["node", "dist/src/main.js"]

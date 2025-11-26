@@ -56,31 +56,43 @@ export class LighthouseService {
     }
     
     // Caminho para o binário Chromium instalado via APK no Dockerfile
-    const CHROME_EXECUTABLE_PATH = '/usr/bin/chromium';
+    const CHROME_EXECUTABLE_PATH = process.env.CHROME_PATH || process.env.CHROME_BIN || '/usr/bin/chromium';
+    let chrome: any = null;
 
-    // Importação dinâmica do chrome-launcher (ES Module)
-    const chromeLauncherModule = await import('chrome-launcher');
-    const chromeLauncher = chromeLauncherModule.default || chromeLauncherModule;
-    
-    const chrome = await chromeLauncher.launch({
-      // CORREÇÃO CRÍTICA: Prioriza o caminho do Chromium instalado via APK no Alpine.
-      // Usa CHROME_EXECUTABLE_PATH como fallback se a variável de ambiente CHROME_PATH não estiver definida.
-      chromePath: process.env.CHROME_PATH || CHROME_EXECUTABLE_PATH, 
-      chromeFlags: [
-        '--headless',
-        '--disable-gpu',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-extensions',
-        '--disable-background-networking',
-        '--disable-sync',
-        '--disable-translate',
-        '--hide-scrollbars',
-        '--mute-audio',
-        '--no-first-run',
-        '--disable-default-apps',
-      ],
-    });
+    try {
+      // Importação dinâmica do chrome-launcher (ES Module)
+      const chromeLauncherModule = await import('chrome-launcher');
+      const chromeLauncher = chromeLauncherModule.default || chromeLauncherModule;
+      
+      chrome = await chromeLauncher.launch({
+        // CORREÇÃO CRÍTICA: Prioriza o caminho do Chromium instalado via APK no Alpine.
+        // Usa CHROME_EXECUTABLE_PATH como fallback se a variável de ambiente CHROME_PATH não estiver definida.
+        chromePath: CHROME_EXECUTABLE_PATH, 
+        chromeFlags: [
+          '--headless',
+          '--disable-gpu',
+          '--no-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-extensions',
+          '--disable-background-networking',
+          '--disable-sync',
+          '--disable-translate',
+          '--hide-scrollbars',
+          '--mute-audio',
+          '--no-first-run',
+          '--disable-default-apps',
+          '--disable-software-rasterizer',
+          '--disable-setuid-sandbox',
+          '--single-process', // Importante para ambientes com poucos recursos
+        ],
+      });
+    } catch (error) {
+      const errorMessage = error.message || error.toString();
+      if (errorMessage.includes('ENOENT') || errorMessage.includes('not found')) {
+        throw new Error(`Chromium não encontrado no caminho: ${CHROME_EXECUTABLE_PATH}. Verifique a instalação do Chromium no container.`);
+      }
+      throw new Error(`Erro ao iniciar o Chrome: ${errorMessage}`);
+    }
 
     const options: any = {
       logLevel: 'error', // Reduzir logs para apenas erros
@@ -88,8 +100,8 @@ export class LighthouseService {
       port: chrome.port,
       onlyCategories: ['accessibility'],
       locale: 'pt-BR',
-      maxWaitForLoad: 8000, // Reduzido para 8 segundos
-      maxWaitForFcp: 5000, // Timeout para First Contentful Paint
+      maxWaitForLoad: 15000, // Aumentado para 15 segundos para sites mais lentos
+      maxWaitForFcp: 10000, // Timeout para First Contentful Paint aumentado
       throttling: {
         rttMs: 40, // Reduzir latência simulada
         throughputKbps: 10240, // Aumentar throughput
@@ -113,7 +125,15 @@ export class LighthouseService {
         throw new Error('Função lighthouse não encontrada no módulo');
       }
       
-      const runnerResult = await lighthouse(url, options);
+      // Timeout total de 60 segundos para a execução do Lighthouse
+      const lighthousePromise = lighthouse(url, options);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Timeout: A análise do Lighthouse excedeu o tempo limite de 60 segundos'));
+        }, 60000);
+      });
+      
+      const runnerResult = await Promise.race([lighthousePromise, timeoutPromise]) as any;
       const reportJson = Array.isArray(runnerResult.report) 
         ? runnerResult.report[0] 
         : runnerResult.report;
@@ -151,20 +171,37 @@ export class LighthouseService {
         naoAplicaveis
       };
     } catch (error) {
-      await chrome.kill();
+      // Garantir que o Chrome seja fechado mesmo em caso de erro
+      if (chrome) {
+        try {
+          await chrome.kill();
+        } catch (killError) {
+          // Ignorar erros ao matar o Chrome
+        }
+      }
       
       // Identificar tipo de erro
       const errorMessage = error.message || error.toString();
+      
+      // Erros de timeout
+      if (errorMessage.includes('Timeout') || errorMessage.includes('timeout')) {
+        throw new Error(`A análise do site demorou muito tempo. Tente novamente ou verifique se o site está acessível.`);
+      }
       
       // Erros comuns de URL inacessível
       if (errorMessage.includes('ENOTFOUND') || 
           errorMessage.includes('ECONNREFUSED') ||
           errorMessage.includes('net::ERR_NAME_NOT_RESOLVED') ||
-          errorMessage.includes('No usable sandbox') ||
-          errorMessage.includes('timeout') ||
-          errorMessage.includes('Navigation timeout') ||
           errorMessage.includes('ERR_CONNECTION')) {
         throw new Error(`A URL "${url}" não pôde ser acessada. Verifique se o endereço está correto e se o site está online.`);
+      }
+      
+      // Erros relacionados ao Chrome/Chromium
+      if (errorMessage.includes('ENOENT') || 
+          errorMessage.includes('not found') ||
+          errorMessage.includes('No usable sandbox') ||
+          errorMessage.includes('Chromium')) {
+        throw new Error(`Erro na configuração do navegador. Entre em contato com o suporte técnico.`);
       }
       
       // Outros erros - mensagem genérica sem mencionar Lighthouse

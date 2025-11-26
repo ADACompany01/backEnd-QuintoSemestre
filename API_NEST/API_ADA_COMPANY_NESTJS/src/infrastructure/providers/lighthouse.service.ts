@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import * as https from 'https';
 import * as http from 'http';
 import * as fs from 'fs';
+import { execSync } from 'child_process';
 
 // O pacote 'chromium' (npm) não é mais usado para o caminho
 // import chromium from 'chromium'; // <--- REMOVIDO OU IGNORADO
@@ -9,24 +10,58 @@ import * as fs from 'fs';
 @Injectable()
 export class LighthouseService {
   /**
+   * Tenta encontrar o caminho do Chromium executando comandos do sistema
+   */
+  private findChromiumPath(): string | null {
+    try {
+      // Tentar usar 'which' ou 'command -v' para encontrar o Chromium
+      const commands = ['which chromium-browser', 'which chromium', 'command -v chromium-browser', 'command -v chromium'];
+      
+      for (const cmd of commands) {
+        try {
+          const result = execSync(cmd, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+          if (result && fs.existsSync(result)) {
+            console.log(`[LighthouseService] Chromium encontrado via comando do sistema: ${result}`);
+            return result;
+          }
+        } catch (e) {
+          // Comando falhou, tentar próximo
+          continue;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn(`[LighthouseService] Erro ao tentar encontrar Chromium via comandos do sistema: ${error.message}`);
+      return null;
+    }
+  }
+  /**
    * Verifica a saúde do serviço Lighthouse (se o Chromium está disponível)
    */
   async checkHealth() {
     // Tentar encontrar o Chromium em vários caminhos possíveis
+    // No Alpine Linux, o Chromium pode estar em diferentes locais
     const possiblePaths = [
       process.env.CHROME_PATH,
       process.env.CHROME_BIN,
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      // Buscar dinamicamente via comandos do sistema
+      this.findChromiumPath(),
       '/usr/bin/chromium',
       '/usr/bin/chromium-browser',
       '/usr/bin/google-chrome',
       '/usr/bin/google-chrome-stable',
+      // Caminhos alternativos no Alpine
+      '/usr/bin/chromium/chrome',
+      '/opt/chromium/chromium',
     ].filter(Boolean) as string[];
 
     let CHROME_EXECUTABLE_PATH = possiblePaths[0] || '/usr/bin/chromium';
     
     // Procurar o Chromium nos caminhos possíveis
     for (const path of possiblePaths) {
-      if (fs.existsSync(path)) {
+      if (path && fs.existsSync(path)) {
         CHROME_EXECUTABLE_PATH = path;
         break;
       }
@@ -147,13 +182,20 @@ export class LighthouseService {
     console.log(`[LighthouseService] URL validada com sucesso`);
     
     // Tentar encontrar o Chromium em vários caminhos possíveis
+    // No Alpine Linux, o Chromium pode estar em diferentes locais
     const possiblePaths = [
       process.env.CHROME_PATH,
       process.env.CHROME_BIN,
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      // Buscar dinamicamente via comandos do sistema
+      this.findChromiumPath(),
       '/usr/bin/chromium',
       '/usr/bin/chromium-browser',
       '/usr/bin/google-chrome',
       '/usr/bin/google-chrome-stable',
+      // Caminhos alternativos no Alpine
+      '/usr/bin/chromium/chrome',
+      '/opt/chromium/chromium',
     ].filter(Boolean) as string[];
 
     let CHROME_EXECUTABLE_PATH = possiblePaths[0] || '/usr/bin/chromium';
@@ -161,7 +203,7 @@ export class LighthouseService {
     // Procurar o Chromium nos caminhos possíveis
     console.log(`[LighthouseService] Procurando Chromium nos caminhos: ${possiblePaths.join(', ')}`);
     for (const path of possiblePaths) {
-      if (fs.existsSync(path)) {
+      if (path && fs.existsSync(path)) {
         CHROME_EXECUTABLE_PATH = path;
         console.log(`[LighthouseService] Chromium encontrado em: ${CHROME_EXECUTABLE_PATH}`);
         break;

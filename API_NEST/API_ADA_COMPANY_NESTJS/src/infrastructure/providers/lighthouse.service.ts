@@ -302,12 +302,12 @@ export class LighthouseService {
               CHROME_EXECUTABLE_PATH = '/usr/bin/chromium';
               console.log(`[LighthouseService] Link simbólico criado com sucesso em runtime!`);
             }
-          } catch (linkError) {
-            console.error(`[LighthouseService] Erro ao criar link simbólico:`, linkError.message);
+          } catch (linkError: any) {
+            console.error(`[LighthouseService] Erro ao criar link simbólico:`, linkError?.message || linkError);
           }
         }
-      } catch (e) {
-        console.error(`[LighthouseService] Não foi possível ler /usr/bin:`, e.message);
+      } catch (e: any) {
+        console.error(`[LighthouseService] Não foi possível ler /usr/bin:`, e?.message || e);
       }
       
       // Se ainda não encontrou, tentar buscar novamente

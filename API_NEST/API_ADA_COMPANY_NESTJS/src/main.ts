@@ -92,21 +92,44 @@ async function bootstrap() {
   // Configuração do Swagger - apenas em ambiente de desenvolvimento
   if (isDevelopment) {
     const config = new DocumentBuilder()
-      .setTitle('API ADA Company')
-      .setDescription('API para gerenciamento de serviços da ADA Company')
+      .setTitle('API ADA Company - Mobile Backend')
+      .setDescription('API para gerenciamento de serviços da ADA Company (Backend Mobile - Porta 3001)\n\n**IMPORTANTE:** Todas as rotas têm o prefixo `/api`. Exemplo: `/api/funcionarios`')
       .setVersion('1.0')
+      .addServer('http://localhost:3001', 'Servidor Local (Desenvolvimento)')
+      .addServer('http://adacompany.duckdns.org', 'Servidor Produção (AWS)')
       .addTag('auth', 'Endpoints de autenticação')
       .addTag('clientes', 'Gerenciamento de clientes')
       .addTag('funcionarios', 'Gerenciamento de funcionários')
       .addTag('pacotes', 'Gerenciamento de pacotes')
       .addTag('orcamentos', 'Gerenciamento de orçamentos')
       .addTag('contratos', 'Gerenciamento de contratos')
+      .addTag('solicitacoes', 'Gerenciamento de solicitações')
+      .addTag('mobile/lighthouse', 'Avaliação de acessibilidade (Lighthouse)')
       .addTag('logs', 'Sistema de logs da aplicação')
-      .addBearerAuth()
+      .addTag('notificacoes', 'Sistema de notificações')
+      .addBearerAuth({
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Digite o token JWT obtido no endpoint de login',
+        in: 'header',
+      })
       .build();
       
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api', app, document);
+    const document = SwaggerModule.createDocument(app, config, {
+      operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
+    });
+    
+    // Garantir que o prefixo global seja aplicado nas rotas do Swagger
+    SwaggerModule.setup('api', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        defaultModelsExpandDepth: 2,
+        defaultModelExpandDepth: 2,
+      },
+      customSiteTitle: 'API ADA Company - Documentação',
+    });
     console.log(`⚠️  Swagger disponível apenas em desenvolvimento: http://localhost:${port}/api`);
   } else {
     console.log('🔒 Swagger desabilitado em produção por segurança');

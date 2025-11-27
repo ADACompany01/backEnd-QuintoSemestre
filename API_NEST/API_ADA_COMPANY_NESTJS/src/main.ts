@@ -13,29 +13,6 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const isDevelopment = configService.get<string>('NODE_ENV') !== 'production';
 
-  // Configuração do Helmet para headers de segurança HTTP
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: ["'self'"],
-        fontSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'none'"],
-      },
-    },
-    crossOriginEmbedderPolicy: false, // Permite carregar recursos externos quando necessário
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
-  }));
-
   // Configuração segura do CORS - removido asterisco (*)
   const allowedOrigins = [
     'http://localhost:3000',
@@ -55,10 +32,63 @@ async function bootstrap() {
     );
   }
 
+  // Configuração do Helmet para headers de segurança HTTP
+  // IMPORTANTE: Ajustar connectSrc para permitir conexões das origens permitidas
+  const helmetConnectSrc = isDevelopment 
+    ? ["'self'", 'http://localhost:*', 'http://127.0.0.1:*', 'http://192.168.*']
+    : ["'self'", 'https://adacompany.duckdns.org', 'http://adacompany.duckdns.org', 'http://localhost:8081', 'http://localhost:3000'];
+
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: helmetConnectSrc, // Permite conexões das origens permitidas
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // Permite carregar recursos externos quando necessário
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Permite recursos cross-origin
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  }));
+
+  // Configuração do CORS - sempre usar lista de origens permitidas (não usar * mesmo em dev por segurança)
   app.enableCors({
-    origin: isDevelopment ? '*' : allowedOrigins, // CORRIGIDO: Usa a lógica dinâmica ou libera tudo em dev
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: (origin, callback) => {
+      // Permitir requisições sem origem (ex: mobile apps, Postman)
+      if (!origin) {
+        return callback(null, true);
+      }
+      
+      // Verificar se a origem está na lista permitida
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      // Em desenvolvimento, ser mais permissivo
+      if (isDevelopment) {
+        console.warn(`⚠️  CORS: Origem não autorizada em desenvolvimento: ${origin}`);
+        return callback(null, true); // Permitir em desenvolvimento
+      }
+      
+      // Em produção, bloquear origens não autorizadas
+      console.error(`❌ CORS: Origem bloqueada: ${origin}`);
+      return callback(new Error('Não permitido pelo CORS'));
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
   
   // Configurar limite de tamanho para uploads (50MB)

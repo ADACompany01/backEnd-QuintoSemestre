@@ -42,6 +42,7 @@ async function bootstrap() {
     'http://localhost:8081',
     'https://newadacompany.vercel.app',
     'https://adacompany.duckdns.org',
+    'http://adacompany.duckdns.org',
   ];
 
   // Adicionar IPs locais apenas em desenvolvimento
@@ -55,15 +56,9 @@ async function bootstrap() {
   }
 
   app.enableCors({
-   origin: [
-     'http://localhost:3000',
-     'http://localhost:8081', 
-     'http://192.168.50.58:8081',
-     'http://adacompany.duckdns.org',
-     '*' // Permitir todas durante desenvolvimento
-   ],
-   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-   credentials: true,
+    origin: isDevelopment ? '*' : allowedOrigins, // CORRIGIDO: Usa a lógica dinâmica ou libera tudo em dev
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
   });
   
   // Configurar limite de tamanho para uploads (50MB)
@@ -96,7 +91,7 @@ async function bootstrap() {
       .setDescription('API para gerenciamento de serviços da ADA Company (Backend Mobile - Porta 3001)\n\n**IMPORTANTE:** Todas as rotas têm o prefixo `/api`. Exemplo: `/api/funcionarios`')
       .setVersion('1.0')
       .addServer('http://localhost:3001', 'Servidor Local (Desenvolvimento)')
-      .addServer('http://adacompany.duckdns.org/api', 'Servidor Produção (AWS)')
+      .addServer('http://adacompany.duckdns.org', 'Servidor Produção (AWS)')
       .addTag('auth', 'Endpoints de autenticação')
       .addTag('clientes', 'Gerenciamento de clientes')
       .addTag('funcionarios', 'Gerenciamento de funcionários')
@@ -117,9 +112,10 @@ async function bootstrap() {
       })
       .build();
       
-    const document = SwaggerModule.createDocument(app, config, {
-      operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
-    });
+      const document = SwaggerModule.createDocument(app, config, {
+        operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
+        ignoreGlobalPrefix: false, // Garante que o /api apareça nos endpoints do JSON
+      });
     
     // Garantir que o prefixo global seja aplicado nas rotas do Swagger
     SwaggerModule.setup('api', app, document, {

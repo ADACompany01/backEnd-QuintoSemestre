@@ -107,8 +107,8 @@ async function bootstrap() {
       .setTitle('API ADA Company - Mobile Backend')
       .setDescription('API para gerenciamento de serviços da ADA Company (Backend Mobile - Porta 3001)\n\n**IMPORTANTE:** Todas as rotas têm o prefixo `/api`. Exemplo: `/api/funcionarios`')
       .setVersion('1.0')
-      .addServer('http://localhost:3001', 'Servidor Local (Desenvolvimento)')
-      .addServer('http://adacompany.duckdns.org', 'Servidor Produção (AWS)')
+      .addServer('http://localhost:3001/api', 'Servidor Local (Desenvolvimento)')
+      .addServer('http://adacompany.duckdns.org/api', 'Servidor Produção (AWS)')
       .addTag('auth', 'Endpoints de autenticação')
       .addTag('clientes', 'Gerenciamento de clientes')
       .addTag('funcionarios', 'Gerenciamento de funcionários')
@@ -131,7 +131,7 @@ async function bootstrap() {
       
       const document = SwaggerModule.createDocument(app, config, {
         operationIdFactory: (controllerKey: string, methodKey: string) => methodKey,
-        ignoreGlobalPrefix: false, // CRÍTICO: false para incluir o prefixo /api nas rotas
+        ignoreGlobalPrefix: true, // CRÍTICO: false para incluir o prefixo /api nas rotas
       });
     
     // Swagger será acessível em /api (documentação) e as rotas já incluirão /api automaticamente

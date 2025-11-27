@@ -107,7 +107,7 @@ async function bootstrap() {
       .setTitle('API ADA Company - Mobile Backend')
       .setDescription('API para gerenciamento de serviços da ADA Company (Backend Mobile - Porta 3001)\n\n**IMPORTANTE:** Todas as rotas têm o prefixo `/api`. Exemplo: `/api/funcionarios`')
       .setVersion('1.0')
-      .addServer('http://localhost:3001/api', 'Servidor Local (Desenvolvimento)')
+      .addServer('http://localhost:3001', 'Servidor Local (Desenvolvimento)')
       .addServer('http://adacompany.duckdns.org', 'Servidor Produção (AWS)')
       .addTag('auth', 'Endpoints de autenticação')
       .addTag('clientes', 'Gerenciamento de clientes')

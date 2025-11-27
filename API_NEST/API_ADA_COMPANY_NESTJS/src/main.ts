@@ -13,7 +13,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const isDevelopment = configService.get<string>('NODE_ENV') !== 'production';
 
-  // Configuração segura do CORS - removido asterisco (*)
+  // Configuração segura do CORS - IMPORTANTE: configurar ANTES do Helmet
   const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:8081',
@@ -32,39 +32,10 @@ async function bootstrap() {
     );
   }
 
-  // Configuração do Helmet para headers de segurança HTTP
-  // IMPORTANTE: Ajustar connectSrc para permitir conexões das origens permitidas
-  const helmetConnectSrc = isDevelopment 
-    ? ["'self'", 'http://localhost:*', 'http://127.0.0.1:*', 'http://192.168.*']
-    : ["'self'", 'https://adacompany.duckdns.org', 'http://adacompany.duckdns.org', 'http://localhost:8081', 'http://localhost:3000'];
-
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: helmetConnectSrc, // Permite conexões das origens permitidas
-        fontSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        mediaSrc: ["'self'"],
-        frameSrc: ["'none'"],
-      },
-    },
-    crossOriginEmbedderPolicy: false, // Permite carregar recursos externos quando necessário
-    crossOriginResourcePolicy: { policy: "cross-origin" }, // Permite recursos cross-origin
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
-  }));
-
-  // Configuração do CORS - sempre usar lista de origens permitidas (não usar * mesmo em dev por segurança)
+  // Configuração do CORS - DEVE VIR ANTES DO HELMET para não ser bloqueado
   app.enableCors({
     origin: (origin, callback) => {
-      // Permitir requisições sem origem (ex: mobile apps, Postman)
+      // Permitir requisições sem origem (ex: mobile apps, Postman, curl)
       if (!origin) {
         return callback(null, true);
       }
@@ -84,12 +55,27 @@ async function bootstrap() {
       console.error(`❌ CORS: Origem bloqueada: ${origin}`);
       return callback(new Error('Não permitido pelo CORS'));
     },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    exposedHeaders: ['Authorization'],
     credentials: true,
     preflightContinue: false,
     optionsSuccessStatus: 204,
+    maxAge: 86400, // Cache preflight por 24 horas
   });
+
+  // Configuração do Helmet para headers de segurança HTTP
+  // CSP desabilitado para não interferir com CORS - pode ser reativado depois com configuração adequada
+  app.use(helmet({
+    contentSecurityPolicy: false, // Desabilitado para não bloquear CORS - pode ser reconfigurado depois
+    crossOriginEmbedderPolicy: false, // Permite carregar recursos externos quando necessário
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Permite recursos cross-origin
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  }));
   
   // Configurar limite de tamanho para uploads (50MB)
   app.use(require('express').json({ limit: '50mb' }));

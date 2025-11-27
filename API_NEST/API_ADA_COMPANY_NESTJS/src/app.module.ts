@@ -17,6 +17,7 @@ import { LighthouseModule } from './modules/lighthouse.module';
 import { LogModule } from './modules/log.module';
 import { NotificacaoModule } from './modules/notificacao.module';
 import { JwtAuthGuard } from './interfaces/http/guards/jwt-auth.guard';
+import { CustomThrottlerGuard } from './interfaces/http/guards/custom-throttler.guard';
 
 @Module({
   imports: [
@@ -74,7 +75,7 @@ import { JwtAuthGuard } from './interfaces/http/guards/jwt-auth.guard';
     },
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: CustomThrottlerGuard, // Usa guard customizado que ignora OPTIONS
     },
   ],
 })

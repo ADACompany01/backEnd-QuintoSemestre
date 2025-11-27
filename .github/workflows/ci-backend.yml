@@ -241,6 +241,11 @@ jobs:
               --name api-backend-mobile \
               --network ada-net \
               --restart always \
+              --log-driver=awslogs \
+              --log-opt awslogs-region=us-east-1 \
+              --log-opt awslogs-group=/ec2/api-backend \
+              --log-opt awslogs-create-group=true \
+              --log-opt awslogs-stream=backend-container \
               -p 3001:3001 \
               -e DB_HOST=postgres-db \
               -e DB_USERNAME=${{ secrets.DB_USERNAME }} \

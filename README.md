@@ -20,15 +20,16 @@
 5. [Tecnologias Utilizadas](#tecnologias-utilizadas)
 6. [Organização dos Repositórios](#organização-dos-repositórios)
 7. [Como Executar](#como-executar)
-8. [Integração e Entrega Contínua (CI/CD)](#integração-e-entrega-contínua-cicd)
-9. [Documentação Docker](#documentação-docker)
-10. [Estrutura do Banco de Dados](#estrutura-do-banco-de-dados)
-11. [Documentação da API](#documentação-da-api)
-12. [Exemplos de Integração](#exemplos-de-integração)
-13. [Links das Aplicações Publicadas](#links-das-aplicações-publicadas)
-14. [Integrantes](#integrantes)
-15. [Licença](#licença)
-16. [Referências e Suporte](#referências-e-suporte)
+8. [Testes](#testes)
+9. [Integração e Entrega Contínua (CI/CD)](#integração-e-entrega-contínua-cicd)
+10. [Documentação Docker](#documentação-docker)
+11. [Estrutura do Banco de Dados](#estrutura-do-banco-de-dados)
+12. [Documentação da API](#documentação-da-api)
+13. [Exemplos de Integração](#exemplos-de-integração)
+14. [Links das Aplicações Publicadas](#links-das-aplicações-publicadas)
+15. [Integrantes](#integrantes)
+16. [Licença](#licença)
+17. [Referências e Suporte](#referências-e-suporte)
 
 ---
 
@@ -179,6 +180,52 @@ Para rodar o sistema completo localmente (frontend, backend e banco de dados), b
 > **Observação:**
 > - Não é necessário criar arquivos `.env` para rodar via Docker, pois todas as variáveis já estão no `docker-compose.yml`.
 > - O compose já está ajustado para facilitar o uso local.
+
+---
+
+## Testes
+
+Os testes do backend devem ser executados dentro da pasta da API NestJS:
+
+```bash
+cd backEnd-QuintoSemestre/API_NEST/API_ADA_COMPANY_NESTJS
+```
+
+### Testes unitarios
+
+```bash
+npm test
+```
+
+### Testes unitarios com cobertura
+
+```bash
+npm run test:cov
+```
+
+O projeto esta configurado para exigir pelo menos 80% de cobertura global na camada de use cases.
+
+### Modo watch
+
+```bash
+npm run test:watch
+```
+
+### Testes end-to-end
+
+```bash
+npm run test:e2e
+```
+
+### Windows/PowerShell
+
+Se o PowerShell bloquear o comando `npm` por politica de execucao de scripts, use `npm.cmd`:
+
+```bash
+npm.cmd test
+npm.cmd run test:cov
+npm.cmd run test:e2e
+```
 
 ---
 
